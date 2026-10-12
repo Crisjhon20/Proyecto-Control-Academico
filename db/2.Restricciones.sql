@@ -11,25 +11,53 @@ ALTER TABLE estudiante
     ADD CONSTRAINT ck_estudiante_numero_celular
         CHECK (numero_celular IS NOT NULL AND numero_celular ~ '^[0-9+() -]{7,20}$'),
     ADD CONSTRAINT ck_estudiante_contrasena
-        CHECK (contrasena IS NOT NULL AND contrasena ~ '^[0-9]{9}$');
+        CHECK (contrasena IS NOT NULL AND contrasena ~ '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'),
+    ADD CONSTRAINT ck_estudiante_rol
+        CHECK (rol IS NOT NULL AND rol IN ('ESTUDIANTE', 'ADMINISTRADOR'));
 
 ALTER TABLE malla_curricular
     ADD CONSTRAINT ck_malla_curricular_nombre
         CHECK (nombre IS NOT NULL AND btrim(nombre) <> '');
 
 ALTER TABLE materia
+    ADD CONSTRAINT ck_materia_codigo
+        CHECK (codigo IS NOT NULL AND codigo ~ '^[A-Z]{3}[0-9]{3}$'),
     ADD CONSTRAINT ck_materia_nombre
         CHECK (nombre IS NOT NULL AND btrim(nombre) <> ''),
     ADD CONSTRAINT ck_materia_semestre
-        CHECK (semestre IS NOT NULL AND semestre BETWEEN 1 AND 20);
+        CHECK (semestre IS NOT NULL AND semestre BETWEEN 1 AND 20),
+    ADD CONSTRAINT ck_materia_creditos
+        CHECK (creditos IS NOT NULL AND creditos > 0);
 
 ALTER TABLE periodo_academico
     ADD CONSTRAINT ck_periodo_academico_nombre
         CHECK (nombre IS NOT NULL AND nombre ~ '^[0-9]{4}-(I|II)$');
 
 ALTER TABLE inscripcion
+    ADD CONSTRAINT ck_inscripcion_semestre_cursado
+        CHECK (semestre_cursado IS NOT NULL AND semestre_cursado BETWEEN 1 AND 20),
     ADD CONSTRAINT ck_inscripcion_estado
         CHECK (estado IS NOT NULL AND estado IN ('Inscrita', 'Retirada', 'Aprobada', 'Reprobada'));
+
+ALTER TABLE docente
+    ADD CONSTRAINT ck_docente_nombres
+        CHECK (nombres IS NOT NULL AND nombres ~ '^[[:alpha:]][[:alpha:] ''-]*$'),
+    ADD CONSTRAINT ck_docente_apellidos
+        CHECK (apellidos IS NOT NULL AND apellidos ~ '^[[:alpha:]][[:alpha:] ''-]*$');
+
+ALTER TABLE aula
+    ADD CONSTRAINT ck_aula_numero
+        CHECK (numero IS NOT NULL AND numero BETWEEN 1 AND 32);
+
+ALTER TABLE asignacion_materia
+    ADD CONSTRAINT ck_asignacion_materia
+        CHECK (materia_id IS NOT NULL),
+    ADD CONSTRAINT ck_asignacion_periodo
+        CHECK (periodo_academico_id IS NOT NULL),
+    ADD CONSTRAINT ck_asignacion_docente
+        CHECK (docente_id IS NOT NULL),
+    ADD CONSTRAINT ck_asignacion_aula
+        CHECK (aula_id IS NOT NULL);
 
 ALTER TABLE evaluacion
     ADD CONSTRAINT ck_evaluacion_nombre
@@ -59,11 +87,18 @@ ALTER TABLE inscripcion
 ALTER TABLE estudiante
     ADD CONSTRAINT uq_estudiante_numero_registro UNIQUE (numero_registro);
 
+ALTER TABLE aula
+    ADD CONSTRAINT uq_aula_numero UNIQUE (numero);
+
 ALTER TABLE malla_curricular
     ADD CONSTRAINT uq_malla_curricular_nombre UNIQUE (nombre);
 
 ALTER TABLE materia
+    ADD CONSTRAINT uq_materia_malla_codigo UNIQUE (malla_curricular_id, codigo),
     ADD CONSTRAINT uq_materia_malla_nombre UNIQUE (malla_curricular_id, nombre);
+
+ALTER TABLE asignacion_materia
+    ADD CONSTRAINT uq_asignacion_materia_periodo UNIQUE (materia_id, periodo_academico_id);
 
 ALTER TABLE periodo_academico
     ADD CONSTRAINT uq_periodo_academico_nombre UNIQUE (nombre);
