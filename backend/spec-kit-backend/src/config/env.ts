@@ -6,6 +6,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('2h'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PERIOD_CLOSURE_KEY: z.string().min(16),
   PORT: z.coerce.number().int().positive().default(3000),
 })
 
@@ -15,5 +16,6 @@ export const env = envSchema.parse({
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN,
   CORS_ORIGIN: process.env.CORS_ORIGIN,
   NODE_ENV: process.env.NODE_ENV,
+  PERIOD_CLOSURE_KEY: process.env.PERIOD_CLOSURE_KEY,
   PORT: process.env.PORT,
 })

@@ -15,7 +15,7 @@ export async function loginStudent(input: LoginInput) {
     apellidos: string
     numero_celular: string
     contrasena: string
-    rol: 'ESTUDIANTE' | 'ADMINISTRADOR'
+    rol: 'ESTUDIANTE'
   }>(
     `SELECT estudiante_id, numero_registro, nombres, apellidos,
             numero_celular, contrasena, rol

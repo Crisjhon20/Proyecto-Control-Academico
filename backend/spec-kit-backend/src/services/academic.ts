@@ -1,8 +1,9 @@
 import bcrypt from 'bcrypt'
 import {
   createEnrollment,
-  createAssignment,
-  deleteAssignment,
+  createSchedule,
+  createTeacher,
+  deleteSchedule,
   findAttendance,
   findAttendanceSummary,
   findAvailableSubjects,
@@ -12,14 +13,17 @@ import {
   findEnrollments,
   findGrades,
   findHistory,
-  findAssignments,
   findClassrooms,
   findPeriods,
   findSchedule,
+  findScheduleConflict,
+  findScheduleEnrollment,
   findSubject,
   findTeachers,
+  closePeriod,
+  findPeriod,
   isStudentEnrolled,
-  updateAssignment,
+  updateSchedule,
   withdrawEnrollment,
 } from '../repositories/academic.js'
 import { findStudentById, updateStudent } from '../repositories/student.js'
@@ -79,14 +83,18 @@ export async function getEnrollmentList(studentId: number, periodId?: number) {
 
 export async function getAvailableSubjects(studentId: number, periodId: number) {
   const period = await findPeriods()
-  if (!period.some((item) => item.id === periodId)) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  const selectedPeriod = period.find((item) => item.id === periodId)
+  if (!selectedPeriod) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  if (selectedPeriod.cerrado) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico está cerrado')
   return findAvailableSubjects(studentId, periodId)
 }
 
 export async function enroll(studentId: number, input: { materiaId: number; periodoAcademicoId: number; semestreCursado: number }) {
   const [subject, periods] = await Promise.all([findSubject(input.materiaId), findPeriods()])
   if (!subject) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
-  if (!periods.some((item) => item.id === input.periodoAcademicoId)) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  const selectedPeriod = periods.find((item) => item.id === input.periodoAcademicoId)
+  if (!selectedPeriod) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  if (selectedPeriod.cerrado) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico está cerrado')
   try {
     return await createEnrollment(studentId, input)
   } catch (error: any) {
@@ -107,44 +115,69 @@ export async function getClassmates(studentId: number, subjectId: number) {
   return findClassmates(studentId, subjectId)
 }
 
-export async function getAssignments(periodId?: number) {
-  return findAssignments(periodId)
-}
-
-export async function assignSubject(data: {
-  materiaId: number
-  periodoAcademicoId: number
-  docenteId: number
-  aulaId: number
-}) {
-  const [subject, periods, teachers, classrooms] = await Promise.all([
-    findSubject(data.materiaId),
-    findPeriods(),
-    findTeachers(),
-    findClassrooms(),
-  ])
-  if (!subject) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
-  if (!periods.some((item) => item.id === data.periodoAcademicoId)) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
-  if (!teachers.some((item) => item.id === data.docenteId)) throw new AppError(404, 'TEACHER_NOT_FOUND', 'Docente no encontrado')
-  if (!classrooms.some((item) => item.id === data.aulaId)) throw new AppError(404, 'CLASSROOM_NOT_FOUND', 'Aula no encontrada')
+export async function registerTeacher(studentId: number, data: { nombres: string; apellidos: string }) {
   try {
-    return await createAssignment(data)
+    return await createTeacher(studentId, data)
   } catch (error: any) {
-    if (error?.code === '23505') throw new AppError(409, 'ASSIGNMENT_CONFLICT', 'La materia ya tiene una asignación para ese periodo')
+    if (error?.code === '23505') throw new AppError(409, 'TEACHER_CONFLICT', 'El docente ya está registrado')
     throw error
   }
 }
 
-export async function changeAssignment(id: number, data: { docenteId: number; aulaId: number }) {
-  const result = await updateAssignment(id, data)
-  if (!result) throw new AppError(404, 'ASSIGNMENT_NOT_FOUND', 'Asignación no encontrada')
+export async function addSchedule(studentId: number, enrollmentId: number, data: {
+  docenteId: number
+  aulaId: number
+  diaSemana: string
+  horaInicio: string
+  horaFin: string
+}) {
+  const [teachers, classrooms] = await Promise.all([findTeachers(), findClassrooms()])
+  if (!teachers.some((item) => item.id === data.docenteId)) throw new AppError(404, 'TEACHER_NOT_FOUND', 'Docente no encontrado')
+  if (!classrooms.some((item) => item.id === data.aulaId)) throw new AppError(404, 'CLASSROOM_NOT_FOUND', 'Aula no encontrada')
+  if (await findScheduleConflict(studentId, enrollmentId, data)) {
+    throw new AppError(409, 'SCHEDULE_CONFLICT', 'El horario se cruza con otra materia del estudiante')
+  }
+  try {
+    const result = await createSchedule(studentId, enrollmentId, data)
+    if (!result) throw new AppError(404, 'ENROLLMENT_NOT_FOUND', 'Inscripción no encontrada o no pertenece al estudiante')
+    return result
+  } catch (error: any) {
+    if (error?.code === '23505') throw new AppError(409, 'SCHEDULE_CONFLICT', 'Ya existe un horario igual para esta inscripción')
+    throw error
+  }
+}
+
+export async function changeSchedule(studentId: number, id: number, data: {
+  docenteId: number
+  aulaId: number
+  diaSemana: string
+  horaInicio: string
+  horaFin: string
+}) {
+  const [teachers, classrooms] = await Promise.all([findTeachers(), findClassrooms()])
+  if (!teachers.some((item) => item.id === data.docenteId)) throw new AppError(404, 'TEACHER_NOT_FOUND', 'Docente no encontrado')
+  if (!classrooms.some((item) => item.id === data.aulaId)) throw new AppError(404, 'CLASSROOM_NOT_FOUND', 'Aula no encontrada')
+  const enrollmentId = await findScheduleEnrollment(studentId, id)
+  if (!enrollmentId) throw new AppError(404, 'SCHEDULE_NOT_FOUND', 'Horario no encontrado')
+  if (await findScheduleConflict(studentId, enrollmentId, data, id)) {
+    throw new AppError(409, 'SCHEDULE_CONFLICT', 'El horario se cruza con otra materia del estudiante')
+  }
+  const result = await updateSchedule(studentId, id, data)
+  if (!result) throw new AppError(404, 'SCHEDULE_NOT_FOUND', 'Horario no encontrado')
   return result
 }
 
-export async function removeAssignment(id: number) {
-  const result = await deleteAssignment(id)
-  if (!result) throw new AppError(404, 'ASSIGNMENT_NOT_FOUND', 'Asignación no encontrada')
+export async function removeSchedule(studentId: number, id: number) {
+  const result = await deleteSchedule(studentId, id)
+  if (!result) throw new AppError(404, 'SCHEDULE_NOT_FOUND', 'Horario no encontrado')
   return result
+}
+
+export async function closeAcademicPeriod(periodId: number) {
+  const period = await findPeriod(periodId)
+  if (!period) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  if (period.cerrado) throw new AppError(409, 'PERIOD_ALREADY_CLOSED', 'El periodo ya está cerrado')
+  return closePeriod(periodId)
 }
 
 export { findCurrentPeriod, findPeriods, findTeachers, findClassrooms, findHistory, findGrades, findSchedule, findAttendance, findAttendanceSummary }

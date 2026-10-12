@@ -7,8 +7,7 @@ VALUES
     ('20260002', 'Ana', 'Perez', '70000001', '$2b$08$a8iq3MEE.4ePfCRWnK991.ZrHkb4NAs/ecxs4NvvAi5tz.6PdT6h.', 'ESTUDIANTE'),
     ('20260003', 'Luis', 'Mamani', '70000002', '$2b$08$FxCED3C8ccAXCz9Hcaxnj.qh87c8HWBt3rcayGVgt/dOQDBq0SArW', 'ESTUDIANTE'),
     ('20260004', 'Sofia', 'Quispe', '70000003', '$2b$08$kglDBhCRQXxm7tY5DufWa.xNSgp3BWhKEriMwkIMH9pois04Z/5Qe', 'ESTUDIANTE'),
-    ('20260005', 'Diego', 'Rojas', '70000004', '$2b$08$QZN5A0yh/uc39g/RpXMfYO4ZcBkGr6dwB./dCTTWi7oJSNV/mCi.K', 'ESTUDIANTE'),
-    ('99999999', 'Administrador', 'Control', '70000099', '$2b$08$wPFLIq6vNyqBL81OCqgpcujnDpH86QaDu6kYMkVCLaBZOB8agQUtW', 'ADMINISTRADOR');
+    ('20260005', 'Diego', 'Rojas', '70000004', '$2b$08$QZN5A0yh/uc39g/RpXMfYO4ZcBkGr6dwB./dCTTWi7oJSNV/mCi.K', 'ESTUDIANTE');
 
 INSERT INTO malla_curricular (nombre)
 VALUES ('Ingeniería en Sistemas');
@@ -83,31 +82,8 @@ JOIN malla_curricular AS malla
 INSERT INTO periodo_academico (nombre)
 VALUES ('2026-I'), ('2026-II'), ('2027-I');
 
-INSERT INTO docente (nombres, apellidos)
-VALUES
-    ('Carlos', 'Mendoza'),
-    ('María', 'Fernández'),
-    ('Jorge', 'Quispe'),
-    ('Laura', 'Vargas'),
-    ('Roberto', 'Salazar');
-
 INSERT INTO aula (numero)
 SELECT numero FROM generate_series(1, 32) AS numeros(numero);
-
-INSERT INTO asignacion_materia (materia_id, periodo_academico_id, docente_id, aula_id)
-SELECT materia.materia_id, periodo.periodo_academico_id, docente.docente_id, aula.aula_id
-FROM (VALUES
-    ('Estructura de Datos I', '2026-II', 'Carlos', 1),
-    ('Base de Datos I', '2026-II', 'María', 2),
-    ('Ingeniería de Software I', '2026-II', 'Jorge', 3),
-    ('Probabilidades y Estadísticas', '2026-II', 'Laura', 4),
-    ('Estructura de Datos I', '2027-I', 'Carlos', 5),
-    ('Programación', '2027-I', 'Roberto', 6)
-) AS datos(materia_nombre, periodo_nombre, docente_nombre, aula_numero)
-JOIN materia ON materia.nombre = datos.materia_nombre
-JOIN periodo_academico periodo ON periodo.nombre = datos.periodo_nombre
-JOIN docente ON docente.nombres = datos.docente_nombre
-JOIN aula ON aula.numero = datos.aula_numero;
 
 INSERT INTO inscripcion
     (estudiante_id, materia_id, periodo_academico_id, semestre_cursado, estado)

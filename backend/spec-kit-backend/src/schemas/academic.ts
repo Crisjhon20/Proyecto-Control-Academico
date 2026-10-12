@@ -8,16 +8,20 @@ export const enrollmentSchema = z.object({
   semestreCursado: z.number().int().min(1).max(20),
 })
 
-export const assignmentSchema = z.object({
-  materiaId: z.number().int().positive(),
-  periodoAcademicoId: z.number().int().positive(),
-  docenteId: z.number().int().positive(),
-  aulaId: z.number().int().positive(),
+export const teacherSchema = z.object({
+  nombres: z.string().trim().min(2).max(100),
+  apellidos: z.string().trim().min(2).max(100),
 })
 
-export const assignmentUpdateSchema = z.object({
+export const scheduleSchema = z.object({
   docenteId: z.number().int().positive(),
   aulaId: z.number().int().positive(),
+  diaSemana: z.enum(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']),
+  horaInicio: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).refine((value) => value >= '07:00' && value <= '22:30'),
+  horaFin: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).refine((value) => value >= '07:00' && value <= '22:30'),
+}).refine((value) => value.horaInicio < value.horaFin, {
+  message: 'La hora de inicio debe ser menor que la hora de finalización',
+  path: ['horaFin'],
 })
 
 export const profileSchema = z.object({

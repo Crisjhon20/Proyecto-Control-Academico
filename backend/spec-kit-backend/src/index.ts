@@ -9,8 +9,8 @@ import { curriculumRoutes } from './routes/curriculum.js'
 import { periodRoutes } from './routes/periods.js'
 import { enrollmentRoutes } from './routes/enrollments.js'
 import { academicRoutes } from './routes/academic.js'
-import { assignmentRoutes } from './routes/assignments.js'
 import { catalogRoutes } from './routes/catalog.js'
+import { scheduleRoutes } from './routes/schedule.js'
 import type { AppEnv } from './types/app.js'
 
 const app = new Hono<AppEnv>()
@@ -34,17 +34,17 @@ app.use('/api/enrollments', authMiddleware)
 app.use('/api/enrollments/*', authMiddleware)
 app.use('/api/academic', authMiddleware)
 app.use('/api/academic/*', authMiddleware)
-app.use('/api/assignments', authMiddleware)
-app.use('/api/assignments/*', authMiddleware)
 app.use('/api/teachers', authMiddleware)
 app.use('/api/classrooms', authMiddleware)
+app.use('/api/schedule', authMiddleware)
+app.use('/api/schedule/*', authMiddleware)
 app.route('/api/students', studentRoutes)
 app.route('/api/curriculum', curriculumRoutes)
 app.route('/api/periods', periodRoutes)
 app.route('/api/enrollments', enrollmentRoutes)
 app.route('/api/academic', academicRoutes)
-app.route('/api/assignments', assignmentRoutes)
 app.route('/api', catalogRoutes)
+app.route('/api/schedule', scheduleRoutes)
 app.onError(errorHandler)
 
 export default app

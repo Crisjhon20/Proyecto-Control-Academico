@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../types/app.js'
 import { enrollmentSchema } from '../schemas/academic.js'
-import { enroll, getAvailableSubjects, getEnrollmentList, withdraw } from '../services/academic.js'
+import { scheduleSchema } from '../schemas/academic.js'
+import { addSchedule, enroll, getAvailableSubjects, getEnrollmentList, withdraw } from '../services/academic.js'
 import { AppError } from '../utils/errors.js'
 
 function parseOptionalId(value: string | undefined) {
@@ -38,4 +39,13 @@ enrollmentRoutes.post('/', async (c) => {
 
 enrollmentRoutes.patch('/:id/withdraw', async (c) => {
   return c.json({ success: true, data: await withdraw(c.get('studentId'), parseId(c.req.param('id'))) })
+})
+
+enrollmentRoutes.post('/:id/schedule', async (c) => {
+  const parsed = scheduleSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) throw new AppError(400, 'VALIDATION_ERROR', 'Los datos del horario no son válidos')
+  return c.json({
+    success: true,
+    data: await addSchedule(c.get('studentId'), parseId(c.req.param('id')), parsed.data),
+  }, 201)
 })

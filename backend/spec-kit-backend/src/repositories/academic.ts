@@ -23,7 +23,7 @@ export async function findSubject(id: number) {
 
 export async function findCurrentPeriod() {
   const result = await pool.query(`
-    SELECT periodo_academico_id AS id, nombre
+    SELECT periodo_academico_id AS id, nombre, cerrado
       FROM periodo_academico
      ORDER BY periodo_academico_id DESC
      LIMIT 1
@@ -33,7 +33,7 @@ export async function findCurrentPeriod() {
 
 export async function findPeriods() {
   const result = await pool.query(`
-    SELECT periodo_academico_id AS id, nombre
+    SELECT periodo_academico_id AS id, nombre, cerrado
       FROM periodo_academico
      ORDER BY nombre DESC
   `)
@@ -44,17 +44,10 @@ export async function findEnrollments(studentId: number, periodId?: number) {
   const result = await pool.query(`
     SELECT i.inscripcion_id AS id, i.semestre_cursado, i.estado,
            p.periodo_academico_id AS periodo_id, p.nombre AS periodo,
-           m.materia_id AS materia_id, m.codigo, m.nombre AS materia, m.semestre, m.creditos,
-           d.nombres AS docente_nombres, d.apellidos AS docente_apellidos,
-           au.numero AS aula
+           m.materia_id AS materia_id, m.codigo, m.nombre AS materia, m.semestre, m.creditos
       FROM inscripcion i
       JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
       JOIN materia m ON m.materia_id = i.materia_id
-      LEFT JOIN asignacion_materia am
-        ON am.materia_id = i.materia_id
-       AND am.periodo_academico_id = i.periodo_academico_id
-      LEFT JOIN docente d ON d.docente_id = am.docente_id
-      LEFT JOIN aula au ON au.aula_id = am.aula_id
      WHERE i.estudiante_id = $1
        AND ($2::integer IS NULL OR i.periodo_academico_id = $2)
      ORDER BY p.nombre DESC, m.semestre, m.codigo
@@ -71,6 +64,15 @@ export async function findTeachers() {
   return result.rows
 }
 
+export async function createTeacher(studentId: number, data: { nombres: string; apellidos: string }) {
+  const result = await pool.query(`
+    INSERT INTO docente (nombres, apellidos, creado_por_estudiante_id)
+    VALUES ($1, $2, $3)
+    RETURNING docente_id AS id, nombres, apellidos
+  `, [data.nombres, data.apellidos, studentId])
+  return result.rows[0]
+}
+
 export async function findClassrooms() {
   const result = await pool.query(`
     SELECT aula_id AS id, numero
@@ -78,59 +80,6 @@ export async function findClassrooms() {
      ORDER BY numero
   `)
   return result.rows
-}
-
-export async function findAssignments(periodId?: number) {
-  const result = await pool.query(`
-    SELECT a.asignacion_id AS id,
-           p.periodo_academico_id AS periodo_id, p.nombre AS periodo,
-           m.materia_id AS materia_id, m.codigo, m.nombre AS materia,
-           d.docente_id AS docente_id, d.nombres AS docente_nombres, d.apellidos AS docente_apellidos,
-           au.aula_id AS aula_id, au.numero AS aula
-      FROM asignacion_materia a
-      JOIN periodo_academico p ON p.periodo_academico_id = a.periodo_academico_id
-      JOIN materia m ON m.materia_id = a.materia_id
-      JOIN docente d ON d.docente_id = a.docente_id
-      JOIN aula au ON au.aula_id = a.aula_id
-     WHERE ($1::integer IS NULL OR a.periodo_academico_id = $1)
-     ORDER BY p.nombre DESC, m.semestre, m.codigo
-  `, [periodId ?? null])
-  return result.rows
-}
-
-export async function createAssignment(data: {
-  materiaId: number
-  periodoAcademicoId: number
-  docenteId: number
-  aulaId: number
-}) {
-  const result = await pool.query(`
-    INSERT INTO asignacion_materia (materia_id, periodo_academico_id, docente_id, aula_id)
-    VALUES ($1, $2, $3, $4)
-    RETURNING asignacion_id AS id, materia_id, periodo_academico_id AS periodo_id,
-              docente_id, aula_id
-  `, [data.materiaId, data.periodoAcademicoId, data.docenteId, data.aulaId])
-  return result.rows[0]
-}
-
-export async function updateAssignment(id: number, data: { docenteId: number; aulaId: number }) {
-  const result = await pool.query(`
-    UPDATE asignacion_materia
-       SET docente_id = $2, aula_id = $3
-     WHERE asignacion_id = $1
-     RETURNING asignacion_id AS id, materia_id, periodo_academico_id AS periodo_id,
-               docente_id, aula_id
-  `, [id, data.docenteId, data.aulaId])
-  return result.rows[0] ?? null
-}
-
-export async function deleteAssignment(id: number) {
-  const result = await pool.query(`
-    DELETE FROM asignacion_materia
-     WHERE asignacion_id = $1
-     RETURNING asignacion_id AS id
-  `, [id])
-  return result.rows[0] ?? null
 }
 
 export async function findAvailableSubjects(studentId: number, periodId: number) {
@@ -176,17 +125,14 @@ export async function withdrawEnrollment(studentId: number, enrollmentId: number
 
 export async function findHistory(studentId: number) {
   const result = await pool.query(`
-    SELECT i.inscripcion_id AS id, p.nombre AS periodo,
+    SELECT h.historial_academico_id AS id, p.nombre AS periodo,
            m.materia_id AS materia_id, m.codigo, m.nombre AS materia,
-           i.semestre_cursado, i.estado,
-           COALESCE(SUM(n.nota * e.porcentaje / 100), 0)::numeric AS nota_final
-      FROM inscripcion i
-      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
-      JOIN materia m ON m.materia_id = i.materia_id
-      LEFT JOIN nota n ON n.inscripcion_id = i.inscripcion_id
-      LEFT JOIN evaluacion e ON e.evaluacion_id = n.evaluacion_id
-     WHERE i.estudiante_id = $1
-     GROUP BY i.inscripcion_id, p.nombre, m.materia_id, m.codigo, m.nombre
+           m.semestre, m.creditos, h.semestre_cursado, h.estado,
+           h.nota_final, h.archivado_en
+      FROM historial_academico h
+      JOIN periodo_academico p ON p.periodo_academico_id = h.periodo_academico_id
+      JOIN materia m ON m.materia_id = h.materia_id
+     WHERE h.estudiante_id = $1
      ORDER BY p.nombre DESC, m.semestre, m.codigo
   `, [studentId])
   return result.rows
@@ -219,16 +165,120 @@ export async function findSchedule(studentId: number) {
       JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
       JOIN materia m ON m.materia_id = i.materia_id
       JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
-      LEFT JOIN asignacion_materia am
-        ON am.materia_id = i.materia_id
-       AND am.periodo_academico_id = i.periodo_academico_id
-      LEFT JOIN docente d ON d.docente_id = am.docente_id
-      LEFT JOIN aula au ON au.aula_id = am.aula_id
+      LEFT JOIN docente d ON d.docente_id = h.docente_id
+      LEFT JOIN aula au ON au.aula_id = h.aula_id
      WHERE i.estudiante_id = $1
        AND i.estado = 'Inscrita'
      ORDER BY h.dia_semana, h.hora_inicio
   `, [studentId])
   return result.rows
+}
+
+export async function createSchedule(studentId: number, enrollmentId: number, data: {
+  docenteId: number
+  aulaId: number
+  diaSemana: string
+  horaInicio: string
+  horaFin: string
+}) {
+  const result = await pool.query(`
+    INSERT INTO horario (inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin)
+    SELECT i.inscripcion_id, $3, $4, $5, $6, $7
+      FROM inscripcion i
+      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+     WHERE i.inscripcion_id = $1
+       AND i.estudiante_id = $2
+       AND i.estado = 'Inscrita'
+       AND p.cerrado = FALSE
+    RETURNING horario_id AS id, inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin
+  `, [enrollmentId, studentId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
+  return result.rows[0] ?? null
+}
+
+export async function updateSchedule(studentId: number, scheduleId: number, data: {
+  docenteId: number
+  aulaId: number
+  diaSemana: string
+  horaInicio: string
+  horaFin: string
+}) {
+  const result = await pool.query(`
+    UPDATE horario h
+       SET docente_id = $3, aula_id = $4, dia_semana = $5,
+           hora_inicio = $6, hora_fin = $7
+      FROM inscripcion i
+      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+     WHERE h.horario_id = $1 AND h.inscripcion_id = i.inscripcion_id
+       AND i.estudiante_id = $2
+       AND i.estado = 'Inscrita'
+       AND p.cerrado = FALSE
+     RETURNING h.horario_id AS id, h.inscripcion_id, h.docente_id,
+               h.aula_id, h.dia_semana, h.hora_inicio, h.hora_fin
+  `, [scheduleId, studentId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
+  return result.rows[0] ?? null
+}
+
+export async function findScheduleConflict(studentId: number, enrollmentId: number, data: {
+  diaSemana: string
+  horaInicio: string
+  horaFin: string
+}, scheduleId?: number) {
+  const result = await pool.query(`
+    SELECT h.horario_id AS id
+      FROM horario h
+      JOIN inscripcion existing_i ON existing_i.inscripcion_id = h.inscripcion_id
+      JOIN inscripcion target_i ON target_i.inscripcion_id = $2
+     WHERE existing_i.estudiante_id = $1
+       AND existing_i.periodo_academico_id = target_i.periodo_academico_id
+       AND h.dia_semana = $3
+       AND h.hora_inicio < $5::time
+       AND h.hora_fin > $4::time
+       AND ($6::integer IS NULL OR h.horario_id <> $6)
+     LIMIT 1
+  `, [studentId, enrollmentId, data.diaSemana, data.horaInicio, data.horaFin, scheduleId ?? null])
+  return result.rows[0] ?? null
+}
+
+export async function findScheduleEnrollment(studentId: number, scheduleId: number) {
+  const result = await pool.query(`
+    SELECT h.inscripcion_id
+      FROM horario h
+      JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
+     WHERE h.horario_id = $1 AND i.estudiante_id = $2
+  `, [scheduleId, studentId])
+  return result.rows[0]?.inscripcion_id ?? null
+}
+
+export async function deleteSchedule(studentId: number, scheduleId: number) {
+  const result = await pool.query(`
+    DELETE FROM horario h
+     USING inscripcion i
+     JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+     WHERE h.horario_id = $1 AND h.inscripcion_id = i.inscripcion_id
+       AND i.estudiante_id = $2
+       AND i.estado = 'Inscrita'
+       AND p.cerrado = FALSE
+     RETURNING h.horario_id AS id
+  `, [scheduleId, studentId])
+  return result.rows[0] ?? null
+}
+
+export async function findPeriod(periodId: number) {
+  const result = await pool.query(`
+    SELECT periodo_academico_id AS id, nombre, cerrado
+      FROM periodo_academico WHERE periodo_academico_id = $1
+  `, [periodId])
+  return result.rows[0] ?? null
+}
+
+export async function closePeriod(periodId: number) {
+  const result = await pool.query(`
+    UPDATE periodo_academico
+       SET cerrado = TRUE
+     WHERE periodo_academico_id = $1 AND cerrado = FALSE
+     RETURNING periodo_academico_id AS id, nombre, cerrado, fecha_cierre
+  `, [periodId])
+  return result.rows[0] ?? null
 }
 
 export async function findAttendance(studentId: number) {

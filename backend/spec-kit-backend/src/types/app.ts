@@ -3,7 +3,7 @@ import type { JWTPayload } from 'jose'
 export type AppEnv = {
   Variables: {
     studentId: number
-    role: 'ESTUDIANTE' | 'ADMINISTRADOR'
+    role: 'ESTUDIANTE'
     jwtPayload: JWTPayload
   }
 }

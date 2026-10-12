@@ -1,10 +1,12 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { scheduleSchema } from '../src/schemas/academic.js'
 
 process.env.DATABASE_URL = 'postgresql:///controlacademico?user=cristian&host=/var/run/postgresql'
 process.env.JWT_SECRET = 'test-secret-with-at-least-32-characters-long'
 process.env.JWT_EXPIRES_IN = '2h'
 process.env.CORS_ORIGIN = 'http://localhost:5173'
 process.env.NODE_ENV = 'test'
+process.env.PERIOD_CLOSURE_KEY = 'test-period-closure-key-2026'
 
 const { default: app } = await import('../src/index.js')
 
@@ -56,5 +58,27 @@ describe('Control Académico API', () => {
       body: JSON.stringify({ materiaId: 18, periodoAcademicoId: 2, semestreCursado: 6 }),
     })
     expect(response.status).toBe(409)
+  })
+
+  it('rechaza horarios fuera de la jornada permitida', () => {
+    const result = scheduleSchema.safeParse({
+      docenteId: 1,
+      aulaId: 1,
+      diaSemana: 'Lunes',
+      horaInicio: '06:00',
+      horaFin: '08:00',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rechaza horarios con inicio posterior o igual al final', () => {
+    const result = scheduleSchema.safeParse({
+      docenteId: 1,
+      aulaId: 1,
+      diaSemana: 'Lunes',
+      horaInicio: '10:00',
+      horaFin: '10:00',
+    })
+    expect(result.success).toBe(false)
   })
 })
