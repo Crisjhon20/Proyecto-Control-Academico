@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import type { AppEnv } from '../types/app.js'
 import { enrollmentSchema } from '../schemas/academic.js'
 import { scheduleSchema } from '../schemas/academic.js'
-import { addSchedule, enroll, getAvailableSubjects, getEnrollmentList, withdraw } from '../services/academic.js'
+import { evaluationsSchema } from '../schemas/academic.js'
+import { addSchedule, enroll, getAvailableSubjects, getEnrollmentEvaluations, getEnrollmentList, saveEnrollmentEvaluations, withdraw } from '../services/academic.js'
 import { AppError } from '../utils/errors.js'
 
 function parseOptionalId(value: string | undefined) {
@@ -39,6 +40,19 @@ enrollmentRoutes.post('/', async (c) => {
 
 enrollmentRoutes.patch('/:id/withdraw', async (c) => {
   return c.json({ success: true, data: await withdraw(c.get('studentId'), parseId(c.req.param('id'))) })
+})
+
+enrollmentRoutes.get('/:id/evaluations', async (c) => {
+  return c.json({ success: true, data: await getEnrollmentEvaluations(c.get('studentId'), parseId(c.req.param('id'))) })
+})
+
+enrollmentRoutes.put('/:id/evaluations', async (c) => {
+  const parsed = evaluationsSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) throw new AppError(400, 'VALIDATION_ERROR', parsed.error.issues[0]?.message || 'Las evaluaciones no son válidas')
+  return c.json({
+    success: true,
+    data: await saveEnrollmentEvaluations(c.get('studentId'), parseId(c.req.param('id')), parsed.data.evaluaciones),
+  })
 })
 
 enrollmentRoutes.post('/:id/schedule', async (c) => {

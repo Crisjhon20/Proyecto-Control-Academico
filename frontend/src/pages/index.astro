@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import PublicHeader from '../components/PublicHeader.astro'
+---
+<BaseLayout title="Control Académico | Ingeniería en Sistemas">
+  <PublicHeader />
+  <main>
+    <section class="hero-grid relative min-h-[calc(100vh-65px)] overflow-hidden border-b border-[#294552] px-6 py-20 lg:px-20 lg:py-28">
+      <div class="glow absolute -right-24 top-10 h-[32rem] w-[32rem]"></div>
+      <div class="relative mx-auto grid max-w-[1400px] items-center gap-14 lg:grid-cols-[1.05fr_.95fr]">
+        <div class="max-w-3xl">
+          <span class="eyebrow">Seguimiento académico personal</span>
+          <h1 class="display mt-8 max-w-4xl text-6xl font-extrabold text-[#e9f1f4] sm:text-7xl lg:text-[7.4rem]">Tu carrera,<br /><span class="text-[#70b6d4]">a tu ritmo.</span></h1>
+          <p class="mt-8 max-w-xl text-base leading-8 text-[#a9bbc5] sm:text-lg">Organiza tus materias, arma tu horario y conserva el seguimiento de tu trayectoria en Ingeniería en Sistemas.</p>
+          <div class="mt-10 flex flex-wrap gap-3"><a href="/login" class="btn-primary">Entrar a mi espacio <span class="ml-3">↗</span></a><a href="#sistema" class="btn-secondary">Conocer el sistema <span class="ml-3 text-[#73b8d5]">↓</span></a></div>
+        </div>
+        <div class="relative mx-auto w-full max-w-xl">
+          <div class="absolute -inset-8 rounded-full bg-[#2d8fb8]/10 blur-3xl"></div>
+          <div class="relative aspect-square overflow-hidden rounded-[2rem] border border-[#356477] bg-[#142f3d] p-5 shadow-2xl">
+            <div class="hero-grid flex h-full flex-col justify-between rounded-[1.4rem] border border-[#315667] bg-[#0f2330] p-6 sm:p-8">
+              <div class="flex items-start justify-between"><span class="text-xs font-extrabold uppercase tracking-[.18em] text-[#73b8d5]">Mi espacio</span><span class="rounded-full border border-[#3e7183] px-3 py-1 text-[.65rem] text-[#a9bbc5]">2026-II</span></div>
+              <div><div class="mb-3 text-sm text-[#8ba9b6]">Progreso académico</div><div class="display text-7xl font-extrabold text-[#e9f1f4]">50 <span class="text-2xl text-[#73b8d5]">cr</span></div><div class="mt-6 h-2 overflow-hidden rounded-full bg-[#1c3a48]"><div class="h-full w-[68%] rounded-full bg-[#70b6d4]"></div></div></div>
+              <div class="grid grid-cols-2 gap-3"><div class="surface-soft rounded-xl p-4"><span class="text-xs text-[#8faab5]">Materias activas</span><strong class="mt-2 block text-2xl text-[#e9f1f4]">06</strong></div><div class="surface-soft rounded-xl p-4"><span class="text-xs text-[#8faab5]">Próxima clase</span><strong class="mt-2 block text-sm text-[#e9f1f4]">Lun · 08:00</strong></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="sistema" class="mx-auto max-w-[1400px] px-6 py-24 lg:px-20">
+      <span class="eyebrow">Una vista más clara</span><h2 class="display mt-7 max-w-4xl text-5xl font-extrabold sm:text-6xl">Todo lo académico,<br /><span class="text-[#70b6d4]">en un mismo lugar.</span></h2>
+      <div id="funciones" class="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4"><div class="surface rounded-2xl p-6"><span class="text-3xl text-[#73b8d5]">01</span><h3 class="mt-12 text-xl font-bold">Organiza</h3><p class="mt-3 text-sm leading-7 text-[#a9bbc5]">Consulta tu malla y registra las materias que estás llevando.</p></div><div class="surface rounded-2xl p-6"><span class="text-3xl text-[#73b8d5]">02</span><h3 class="mt-12 text-xl font-bold">Construye</h3><p class="mt-3 text-sm leading-7 text-[#a9bbc5]">Diseña un horario personal sin cruces de materias.</p></div><div class="surface rounded-2xl p-6"><span class="text-3xl text-[#73b8d5]">03</span><h3 class="mt-12 text-xl font-bold">Revisa</h3><p class="mt-3 text-sm leading-7 text-[#a9bbc5]">Sigue tus notas, asistencia e historial por periodo.</p></div><div class="surface rounded-2xl p-6"><span class="text-3xl text-[#73b8d5]">04</span><h3 class="mt-12 text-xl font-bold">Conecta</h3><p class="mt-3 text-sm leading-7 text-[#a9bbc5]">Encuentra compañeros de las materias que compartes.</p></div></div>
+    </section>
+    <section class="border-y border-[#294552] bg-[#0e1d29] px-6 py-20 lg:px-20"><div class="mx-auto flex max-w-[1400px] flex-col items-start justify-between gap-8 md:flex-row md:items-end"><div><span class="eyebrow">Comienza tu recorrido</span><h2 class="display mt-6 max-w-3xl text-5xl font-extrabold">Aprender también es<br /><span class="text-[#70b6d4]">llevar el control.</span></h2></div><a href="/login" class="btn-primary">Ingresar ahora <span class="ml-3">↗</span></a></div></section>
+  </main>
+</BaseLayout>

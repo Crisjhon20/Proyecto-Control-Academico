@@ -1,0 +1,18 @@
+---
+import BrandMark from './BrandMark.astro'
+---
+<header class="relative z-20 border-b border-[#294552] bg-[#0d1b28]/95">
+  <div class="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3 lg:px-12">
+    <a href="/" class="focus-ring flex items-center gap-3">
+      <BrandMark />
+      <span class="hidden leading-tight sm:block"><strong class="block text-sm text-[#e9f1f4]">Control Académico</strong><small class="text-[.67rem] tracking-[.12em] text-[#8fa9b5]">INGENIERÍA EN SISTEMAS</small></span>
+    </a>
+    <nav class="hidden items-center gap-7 text-sm text-[#cedde3] md:flex">
+      <a class="transition hover:text-[#79c1de]" href="/#sistema">El sistema</a>
+      <a class="transition hover:text-[#79c1de]" href="/#funciones">Funciones</a>
+      <a class="transition hover:text-[#79c1de]" href="/login">Ingresar <span class="text-[#79c1de]">↗</span></a>
+    </nav>
+    <a class="btn-primary hidden rounded-b-xl rounded-t-none px-5 py-3 text-sm md:block" href="/login">Acceder <span class="ml-2">↗</span></a>
+    <a class="text-2xl text-[#73b8d5] md:hidden" href="/login" aria-label="Ingresar">↗</a>
+  </div>
+</header>

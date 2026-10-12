@@ -1,0 +1,12 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro'
+---
+<AppLayout title="Malla curricular | Control Académico" active="malla">
+  <span class="eyebrow">Oferta académica</span><h1 class="display mt-6 max-w-4xl text-5xl font-extrabold sm:text-6xl">Tu carrera,<br /><span class="text-[#70b6d4]">semestre a semestre.</span></h1><p class="mt-5 max-w-2xl text-sm leading-7 text-[#9db2bd]">Consulta las materias de Ingeniería en Sistemas, sus códigos y créditos.</p>
+  <div id="curriculum" class="mt-12 space-y-5"><div class="h-32 animate-pulse rounded-2xl bg-[#193746]"></div></div>
+</AppLayout>
+<script>
+  import { api } from '../../lib/api'; import { requireSession } from '../../lib/session'; requireSession()
+  const root = document.querySelector('#curriculum')!
+  try { const data: any[] = await api.curriculum() as any[]; root.innerHTML = data.flatMap((career: any) => career.semestres.map((semester: any) => `<section class="surface rounded-2xl p-5 sm:p-7"><div class="flex items-center justify-between gap-4"><div><span class="eyebrow">Semestre ${semester.semestre}</span><h2 class="mt-4 text-2xl font-bold">Materias del periodo</h2></div><span class="text-sm text-[#8fa9b5]">${semester.materias.length} materias · ${semester.materias.length * 5} créditos</span></div><div class="mt-6 grid gap-3 md:grid-cols-2">${semester.materias.map((subject: any) => `<article class="surface-soft flex items-center justify-between rounded-xl p-4"><div><span class="text-xs font-extrabold tracking-[.1em] text-[#73b8d5]">${subject.codigo}</span><h3 class="mt-1 font-semibold">${subject.nombre}</h3></div><span class="rounded-full border border-[#376478] px-3 py-1 text-xs text-[#a9c5cf]">${subject.creditos} cr</span></article>`).join('')}</div></section>`)).join('') } catch { root.innerHTML = '<p class="text-[#efaaaa]">No se pudo cargar la malla curricular.</p>' }
+</script>

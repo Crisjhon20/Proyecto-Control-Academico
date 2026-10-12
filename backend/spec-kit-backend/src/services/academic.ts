@@ -11,6 +11,7 @@ import {
   findCurrentPeriod,
   findCurriculum,
   findEnrollments,
+  findEnrollmentEvaluations,
   findGrades,
   findHistory,
   findClassrooms,
@@ -22,9 +23,10 @@ import {
   findTeachers,
   closePeriod,
   findPeriod,
-  isStudentEnrolled,
+  findStudentSubjectPeriod,
   updateSchedule,
   withdrawEnrollment,
+  replaceEnrollmentEvaluations,
 } from '../repositories/academic.js'
 import { findStudentById, updateStudent } from '../repositories/student.js'
 import { AppError } from '../utils/errors.js'
@@ -109,10 +111,25 @@ export async function withdraw(studentId: number, enrollmentId: number) {
   return result
 }
 
+export async function getEnrollmentEvaluations(studentId: number, enrollmentId: number) {
+  return findEnrollmentEvaluations(studentId, enrollmentId)
+}
+
+export async function saveEnrollmentEvaluations(studentId: number, enrollmentId: number, evaluations: Array<{
+  nombre: string
+  porcentaje: number
+  nota?: number
+}>) {
+  const result = await replaceEnrollmentEvaluations(studentId, enrollmentId, evaluations)
+  if (!result) throw new AppError(404, 'ENROLLMENT_NOT_FOUND', 'La inscripción no existe, no pertenece al estudiante o el periodo está cerrado')
+  return result
+}
+
 export async function getClassmates(studentId: number, subjectId: number) {
   if (!(await findSubject(subjectId))) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
-  if (!(await isStudentEnrolled(studentId, subjectId))) throw new AppError(403, 'FORBIDDEN', 'No estás inscrito en esta materia')
-  return findClassmates(studentId, subjectId)
+  const periodId = await findStudentSubjectPeriod(studentId, subjectId)
+  if (!periodId) throw new AppError(403, 'FORBIDDEN', 'No estás inscrito en esta materia')
+  return findClassmates(studentId, subjectId, periodId)
 }
 
 export async function registerTeacher(studentId: number, data: { nombres: string; apellidos: string }) {
@@ -131,7 +148,7 @@ export async function addSchedule(studentId: number, enrollmentId: number, data:
   horaInicio: string
   horaFin: string
 }) {
-  const [teachers, classrooms] = await Promise.all([findTeachers(), findClassrooms()])
+  const [teachers, classrooms] = await Promise.all([findTeachers(studentId), findClassrooms()])
   if (!teachers.some((item) => item.id === data.docenteId)) throw new AppError(404, 'TEACHER_NOT_FOUND', 'Docente no encontrado')
   if (!classrooms.some((item) => item.id === data.aulaId)) throw new AppError(404, 'CLASSROOM_NOT_FOUND', 'Aula no encontrada')
   if (await findScheduleConflict(studentId, enrollmentId, data)) {
@@ -139,6 +156,7 @@ export async function addSchedule(studentId: number, enrollmentId: number, data:
   }
   try {
     const result = await createSchedule(studentId, enrollmentId, data)
+    if (result && 'conflict' in result && result.conflict) throw new AppError(409, 'SCHEDULE_CONFLICT', 'El horario se cruza con otra materia del estudiante')
     if (!result) throw new AppError(404, 'ENROLLMENT_NOT_FOUND', 'Inscripción no encontrada o no pertenece al estudiante')
     return result
   } catch (error: any) {
@@ -154,7 +172,7 @@ export async function changeSchedule(studentId: number, id: number, data: {
   horaInicio: string
   horaFin: string
 }) {
-  const [teachers, classrooms] = await Promise.all([findTeachers(), findClassrooms()])
+  const [teachers, classrooms] = await Promise.all([findTeachers(studentId), findClassrooms()])
   if (!teachers.some((item) => item.id === data.docenteId)) throw new AppError(404, 'TEACHER_NOT_FOUND', 'Docente no encontrado')
   if (!classrooms.some((item) => item.id === data.aulaId)) throw new AppError(404, 'CLASSROOM_NOT_FOUND', 'Aula no encontrada')
   const enrollmentId = await findScheduleEnrollment(studentId, id)
@@ -163,6 +181,7 @@ export async function changeSchedule(studentId: number, id: number, data: {
     throw new AppError(409, 'SCHEDULE_CONFLICT', 'El horario se cruza con otra materia del estudiante')
   }
   const result = await updateSchedule(studentId, id, data)
+  if (result && 'conflict' in result && result.conflict) throw new AppError(409, 'SCHEDULE_CONFLICT', 'El horario se cruza con otra materia del estudiante')
   if (!result) throw new AppError(404, 'SCHEDULE_NOT_FOUND', 'Horario no encontrado')
   return result
 }

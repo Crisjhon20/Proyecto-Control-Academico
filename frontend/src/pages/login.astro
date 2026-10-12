@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import PublicHeader from '../components/PublicHeader.astro'
+---
+<BaseLayout title="Ingresar | Control Académico">
+  <PublicHeader />
+  <main class="hero-grid flex min-h-[calc(100vh-65px)] items-center justify-center px-5 py-16">
+    <div class="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#315667] bg-[#0e1d29] shadow-2xl lg:grid-cols-[.9fr_1.1fr]">
+      <section class="relative hidden overflow-hidden bg-[#153342] p-10 lg:block"><div class="glow absolute -left-24 top-0 h-80 w-80"></div><span class="eyebrow relative">Tu espacio académico</span><h1 class="display relative mt-16 text-6xl font-extrabold">Vuelve a<br /><span class="text-[#70b6d4]">tu ruta.</span></h1><p class="relative mt-8 max-w-xs text-sm leading-7 text-[#a9bbc5]">Consulta tus materias, organiza tus horarios y sigue cada paso de tu carrera.</p><div class="absolute bottom-10 left-10 right-10 border-t border-[#396073] pt-5 text-xs text-[#87a3af]">Ingeniería en Sistemas · Control Académico</div></section>
+      <section class="p-7 sm:p-12"><span class="eyebrow">Acceso de estudiante</span><h2 class="mt-8 text-3xl font-extrabold text-[#e9f1f4]">Ingresa a tu cuenta</h2><p class="mt-3 text-sm leading-6 text-[#9db2bd]">Usa tu número de registro para continuar.</p><form id="login-form" class="mt-9 space-y-5"><label class="block text-sm text-[#c9d8de]">Número de registro<input class="input-field mt-2" name="numeroRegistro" inputmode="numeric" autocomplete="username" placeholder="20260001" /></label><label class="block text-sm text-[#c9d8de]">Contraseña<input class="input-field mt-2" type="password" name="contrasena" autocomplete="current-password" placeholder="Tu contraseña" /></label><p id="login-error" class="hidden rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa]"></p><button class="btn-primary w-full" type="submit">Entrar a mi espacio <span class="ml-2">↗</span></button></form><p class="mt-8 text-xs text-[#718d99]">Si no puedes ingresar, verifica tus credenciales con la dirección de carrera.</p></section>
+    </div>
+  </main>
+</BaseLayout>
+<script>
+  import { api, ApiError } from '../lib/api'
+  import { loginSchema } from '../lib/schemas'
+  import { setSession } from '../lib/session'
+  const form = document.querySelector<HTMLFormElement>('#login-form')
+  const error = document.querySelector('#login-error')
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const data = Object.fromEntries(new FormData(form).entries())
+    const parsed = loginSchema.safeParse(data)
+    if (!parsed.success) { if (error) { error.textContent = parsed.error.issues[0]?.message || 'Revisa los datos'; error.classList.remove('hidden') }; return }
+    const button = form.querySelector('button'); if (button) { button.disabled = true; button.textContent = 'Validando…' }
+    try { setSession(await api.login(parsed.data) as any); window.location.href = '/app/' }
+    catch (err) { if (error) { error.textContent = err instanceof ApiError ? err.message : 'No se pudo conectar con el servidor'; error.classList.remove('hidden') } }
+    finally { if (button) { button.disabled = false; button.innerHTML = 'Entrar a mi espacio <span class="ml-2">↗</span>' } }
+  })
+</script>

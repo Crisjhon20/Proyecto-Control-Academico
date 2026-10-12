@@ -1,0 +1,57 @@
+---
+import BrandMark from './BrandMark.astro'
+const { active = 'inicio' } = Astro.props
+const links = [
+  ['inicio', 'Inicio', '/app/'],
+  ['malla', 'Malla curricular', '/app/malla'],
+  ['inscripciones', 'Inscripciones', '/app/inscripciones'],
+  ['horario', 'Mi horario', '/app/horario'],
+  ['historial', 'Historial', '/app/historial'],
+  ['notas', 'Notas', '/app/notas'],
+  ['asistencia', 'Asistencia', '/app/asistencia'],
+]
+---
+<div class="min-h-screen bg-[#102431]">
+  <header class="relative z-30 border-b border-[#294552] bg-[#0d1b28]/95">
+    <div class="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-3 lg:px-10">
+      <a href="/app/" class="focus-ring flex items-center gap-3">
+        <BrandMark />
+        <span class="hidden leading-tight sm:block"><strong class="block text-sm text-[#e9f1f4]">Control Académico</strong><small class="text-[.65rem] tracking-[.13em] text-[#8fa9b5]">INGENIERÍA EN SISTEMAS</small></span>
+      </a>
+      <div class="flex items-center gap-3">
+        <span id="shell-student" class="hidden text-right text-xs text-[#9db2bd] sm:block"></span>
+        <a href="/app/perfil" class="focus-ring grid h-9 w-9 place-items-center rounded-full border border-[#427487] bg-[#193b4b] text-xs font-bold text-[#8ed2eb]" id="shell-avatar">CA</a>
+        <button id="menu-toggle" class="focus-ring rounded-lg border border-[#2a4a59] px-3 py-2 text-[#8ed2eb] md:hidden" aria-label="Abrir menú">☰</button>
+      </div>
+    </div>
+  </header>
+  <div class="mx-auto flex max-w-[1500px]">
+    <aside id="app-sidebar" class="fixed inset-y-[65px] left-0 z-20 hidden w-64 border-r border-[#294552] bg-[#0e1d29] px-4 py-6 md:sticky md:top-[65px] md:block md:h-[calc(100vh-65px)]">
+      <p class="mb-4 px-3 text-[.65rem] font-extrabold uppercase tracking-[.15em] text-[#5d8494]">Tu espacio</p>
+      <nav class="space-y-1">
+        {links.map(([key, label, href]) => <a href={href} class:list={["focus-ring group flex items-center justify-between rounded-lg px-3 py-3 text-sm transition", active === key ? "bg-[#193b4b] text-[#8ed2eb]" : "text-[#a9bbc5] hover:bg-[#142d3a] hover:text-[#e9f1f4]"]}><span>{label}</span><span class="text-[#5f8797] transition group-hover:translate-x-1">→</span></a>)}
+      </nav>
+      <div class="absolute inset-x-4 bottom-6 border-t border-[#294552] pt-5">
+        <a href="/app/companeros" class="block rounded-lg px-3 py-3 text-sm text-[#a9bbc5] transition hover:bg-[#142d3a] hover:text-[#e9f1f4]">Compañeros por materia</a>
+        <button id="logout-button" class="mt-2 w-full rounded-lg px-3 py-3 text-left text-sm text-[#ef9a9a] transition hover:bg-[#301f28]">Cerrar sesión</button>
+      </div>
+    </aside>
+    <main class="min-w-0 flex-1 px-5 py-8 lg:px-12 lg:py-10"><slot /></main>
+  </div>
+</div>
+<script>
+  import { getSession, clearSession } from '../lib/session'
+  const session = getSession()
+  const name = document.querySelector('#shell-student')
+  const avatar = document.querySelector('#shell-avatar')
+  if (session) {
+    const full = `${session.student.nombres} ${session.student.apellidos}`
+    if (name) name.textContent = full
+    if (avatar) avatar.textContent = session.student.nombres.slice(0, 1) + session.student.apellidos.slice(0, 1)
+  } else window.location.href = '/login'
+  document.querySelector('#logout-button')?.addEventListener('click', async () => {
+    try { await fetch(`${import.meta.env.PUBLIC_API_URL || 'http://localhost:3000/api'}/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${session?.token}` } }) } catch {}
+    clearSession(); window.location.href = '/login'
+  })
+  document.querySelector('#menu-toggle')?.addEventListener('click', () => document.querySelector('#app-sidebar')?.classList.toggle('hidden'))
+</script>

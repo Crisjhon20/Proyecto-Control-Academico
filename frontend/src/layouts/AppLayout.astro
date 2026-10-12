@@ -1,0 +1,6 @@
+---
+import BaseLayout from './BaseLayout.astro'
+import AppShell from '../components/AppShell.astro'
+const { title = 'Control Académico', active } = Astro.props
+---
+<BaseLayout title={title}><AppShell active={active}><slot /></AppShell></BaseLayout>

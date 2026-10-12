@@ -108,18 +108,23 @@ JOIN materia
 JOIN periodo_academico AS periodo
     ON periodo.nombre = datos.periodo_nombre;
 
-INSERT INTO evaluacion (materia_id, nombre, porcentaje)
-SELECT materia.materia_id, datos.nombre, datos.porcentaje
+INSERT INTO evaluacion (inscripcion_id, nombre, porcentaje)
+SELECT inscripcion.inscripcion_id, datos.nombre, datos.porcentaje
 FROM (VALUES
     ('Primer Parcial', 20.00),
     ('Segundo Parcial', 20.00),
-    ('Examen Final', 40.00)
+    ('Examen Final', 60.00)
 ) AS datos(nombre, porcentaje)
 JOIN materia
-    ON materia.nombre = 'Estructura de Datos I';
+    ON materia.nombre = 'Estructura de Datos I'
 
-INSERT INTO nota (inscripcion_id, evaluacion_id, nota)
-SELECT inscripcion.inscripcion_id, evaluacion.evaluacion_id, datos.nota
+JOIN inscripcion
+    ON inscripcion.materia_id = materia.materia_id
+   AND inscripcion.estudiante_id = 1
+   AND inscripcion.periodo_academico_id = 2;
+
+INSERT INTO nota (evaluacion_id, nota)
+SELECT evaluacion.evaluacion_id, datos.nota
 FROM (VALUES
     ('Primer Parcial', 80.00),
     ('Segundo Parcial', 70.00),
@@ -127,15 +132,10 @@ FROM (VALUES
 ) AS datos(nombre, nota)
 JOIN evaluacion
     ON evaluacion.nombre = datos.nombre
-JOIN materia
-    ON materia.materia_id = evaluacion.materia_id
 JOIN inscripcion
-    ON inscripcion.materia_id = materia.materia_id
-    AND inscripcion.estudiante_id = 1
-JOIN periodo_academico AS periodo
-    ON periodo.periodo_academico_id = inscripcion.periodo_academico_id
-WHERE materia.nombre = 'Estructura de Datos I'
-  AND periodo.nombre = '2026-II';
+    ON inscripcion.inscripcion_id = evaluacion.inscripcion_id
+WHERE inscripcion.estudiante_id = 1
+  AND inscripcion.periodo_academico_id = 2;
 
 INSERT INTO horario (inscripcion_id, dia_semana, hora_inicio, hora_fin)
 SELECT inscripcion.inscripcion_id, datos.dia_semana, datos.hora_inicio, datos.hora_fin

@@ -52,6 +52,8 @@ ALTER TABLE aula
         CHECK (numero IS NOT NULL AND numero BETWEEN 1 AND 32);
 
 ALTER TABLE evaluacion
+    ADD CONSTRAINT ck_evaluacion_inscripcion
+        CHECK (inscripcion_id IS NOT NULL),
     ADD CONSTRAINT ck_evaluacion_nombre
         CHECK (nombre IS NOT NULL AND btrim(nombre) <> ''),
     ADD CONSTRAINT ck_evaluacion_porcentaje
@@ -111,10 +113,10 @@ ALTER TABLE inscripcion
         UNIQUE (estudiante_id, materia_id, periodo_academico_id);
 
 ALTER TABLE evaluacion
-    ADD CONSTRAINT uq_evaluacion_materia_nombre UNIQUE (materia_id, nombre);
+    ADD CONSTRAINT uq_evaluacion_inscripcion_nombre UNIQUE (inscripcion_id, nombre);
 
 ALTER TABLE nota
-    ADD CONSTRAINT uq_nota_inscripcion_evaluacion UNIQUE (inscripcion_id, evaluacion_id);
+    ADD CONSTRAINT uq_nota_evaluacion UNIQUE (evaluacion_id);
 
 ALTER TABLE horario
     ADD CONSTRAINT uq_horario_inscripcion_dia_hora
@@ -125,7 +127,8 @@ ALTER TABLE asistencia
         UNIQUE (inscripcion_id, fecha_clase);
 
 ALTER TABLE docente
-    ADD CONSTRAINT uq_docente_nombre UNIQUE (nombres, apellidos);
+    ADD CONSTRAINT uq_docente_estudiante_nombre
+        UNIQUE (creado_por_estudiante_id, nombres, apellidos);
 
 ALTER TABLE historial_academico
     ADD CONSTRAINT uq_historial_estudiante_materia_periodo
@@ -159,8 +162,8 @@ BEGIN
                ROUND(COALESCE(SUM(n.nota * e.porcentaje / 100), 0), 2),
                i.estado
           FROM inscripcion i
-          LEFT JOIN nota n ON n.inscripcion_id = i.inscripcion_id
-          LEFT JOIN evaluacion e ON e.evaluacion_id = n.evaluacion_id
+          LEFT JOIN evaluacion e ON e.inscripcion_id = i.inscripcion_id
+          LEFT JOIN nota n ON n.evaluacion_id = e.evaluacion_id
          WHERE i.periodo_academico_id = NEW.periodo_academico_id
          GROUP BY i.estudiante_id, i.materia_id,
                   i.periodo_academico_id, i.semestre_cursado, i.estado

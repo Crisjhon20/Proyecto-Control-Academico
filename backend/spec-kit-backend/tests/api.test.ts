@@ -35,7 +35,7 @@ describe('Control Académico API', () => {
     })
     expect(response.status).toBe(200)
     const body = await response.json() as { data: Record<string, unknown> }
-    expect(body.data.numero_registro).toBe('20260001')
+    expect(body.data.numeroRegistro).toBe('20260001')
     expect(body.data).not.toHaveProperty('contrasena')
   })
 
@@ -80,5 +80,19 @@ describe('Control Académico API', () => {
       horaFin: '10:00',
     })
     expect(result.success).toBe(false)
+  })
+
+  it('rechaza una ponderación que no suma 100%', async () => {
+    const response = await app.request('/api/enrollments/10/evaluations', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        evaluaciones: [{ nombre: 'Parcial', porcentaje: 50, nota: 80 }],
+      }),
+    })
+    expect(response.status).toBe(400)
   })
 })

@@ -1,0 +1,14 @@
+---
+import '../styles/global.css'
+const { title = 'Control Académico' } = Astro.props
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#0d1b28" />
+    <title>{title}</title>
+  </head>
+  <body><slot /></body>
+</html>

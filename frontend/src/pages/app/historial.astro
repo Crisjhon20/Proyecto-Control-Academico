@@ -1,0 +1,10 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro'
+---
+<AppLayout title="Historial académico | Control Académico" active="historial">
+  <span class="eyebrow">Trayectoria</span><h1 class="display mt-6 text-5xl font-extrabold sm:text-6xl">Tu historial<br /><span class="text-[#70b6d4]">académico.</span></h1><p class="mt-5 max-w-2xl text-sm leading-7 text-[#9db2bd]">Los resultados quedan guardados cuando un periodo académico se cierra.</p><div id="history" class="mt-10 overflow-hidden rounded-2xl border border-[#315667] bg-[#142d3a]"></div>
+</AppLayout>
+<script>
+  import { api } from '../../lib/api'; import { requireSession } from '../../lib/session'; requireSession(); const root = document.querySelector('#history')!
+  try { const rows: any[] = await api.history() as any[]; root.innerHTML = rows.length ? `<div class="hidden grid-cols-[1.4fr_.7fr_.7fr_.7fr] border-b border-[#315667] px-6 py-4 text-xs font-bold uppercase tracking-[.1em] text-[#7394a1] sm:grid"><span>Materia</span><span>Periodo</span><span>Estado</span><span class="text-right">Nota</span></div>${rows.map(row => `<div class="grid gap-2 border-b border-[#294b5a] px-6 py-5 last:border-0 sm:grid-cols-[1.4fr_.7fr_.7fr_.7fr] sm:items-center"><div><span class="text-xs font-bold tracking-[.1em] text-[#73b8d5]">${row.codigo}</span><strong class="mt-1 block">${row.materia}</strong><small class="text-[#8fa9b5]">Semestre cursado ${row.semestre_cursado} · ${row.creditos} créditos</small></div><span class="text-sm text-[#a9bbc5]">${row.periodo}</span><span class="text-sm text-[#a9bbc5]">${row.estado}</span><strong class="text-left text-xl text-[#e9f1f4] sm:text-right">${row.nota_final}</strong></div>`).join('')}` : '<div class="p-8 text-sm text-[#8fa9b5]">Todavía no hay periodos cerrados en tu historial.</div>' } catch { root.innerHTML = '<div class="p-8 text-sm text-[#efaaaa]">No se pudo cargar el historial.</div>' }
+</script>

@@ -55,12 +55,13 @@ export async function findEnrollments(studentId: number, periodId?: number) {
   return result.rows
 }
 
-export async function findTeachers() {
+export async function findTeachers(studentId: number) {
   const result = await pool.query(`
     SELECT docente_id AS id, nombres, apellidos
       FROM docente
+     WHERE creado_por_estudiante_id = $1
      ORDER BY apellidos, nombres
-  `)
+  `, [studentId])
   return result.rows
 }
 
@@ -115,9 +116,12 @@ export async function withdrawEnrollment(studentId: number, enrollmentId: number
   const result = await pool.query(`
     UPDATE inscripcion
        SET estado = 'Retirada'
-     WHERE inscripcion_id = $1
-       AND estudiante_id = $2
-       AND estado = 'Inscrita'
+      FROM periodo_academico p
+      WHERE inscripcion_id = $1
+        AND estudiante_id = $2
+        AND estado = 'Inscrita'
+        AND p.periodo_academico_id = inscripcion.periodo_academico_id
+        AND p.cerrado = FALSE
      RETURNING inscripcion_id AS id, estado
   `, [enrollmentId, studentId])
   return result.rows[0] ?? null
@@ -145,7 +149,7 @@ export async function findGrades(studentId: number, enrollmentId?: number) {
            e.nombre AS evaluacion, e.porcentaje, n.nota
       FROM nota n
       JOIN evaluacion e ON e.evaluacion_id = n.evaluacion_id
-      JOIN inscripcion i ON i.inscripcion_id = n.inscripcion_id
+      JOIN inscripcion i ON i.inscripcion_id = e.inscripcion_id
       JOIN materia m ON m.materia_id = i.materia_id
       JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
      WHERE i.estudiante_id = $1
@@ -153,6 +157,67 @@ export async function findGrades(studentId: number, enrollmentId?: number) {
      ORDER BY p.nombre DESC, m.codigo, e.evaluacion_id
   `, [studentId, enrollmentId ?? null])
   return result.rows
+}
+
+export async function findEnrollmentEvaluations(studentId: number, enrollmentId: number) {
+  const result = await pool.query(`
+    SELECT e.evaluacion_id AS id, e.nombre, e.porcentaje, n.nota
+      FROM evaluacion e
+      JOIN inscripcion i ON i.inscripcion_id = e.inscripcion_id
+      LEFT JOIN nota n ON n.evaluacion_id = e.evaluacion_id
+     WHERE e.inscripcion_id = $1 AND i.estudiante_id = $2
+     ORDER BY e.evaluacion_id
+  `, [enrollmentId, studentId])
+  return result.rows
+}
+
+export async function replaceEnrollmentEvaluations(studentId: number, enrollmentId: number, evaluations: Array<{
+  nombre: string
+  porcentaje: number
+  nota?: number
+}>) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const target = await client.query(`
+      SELECT i.inscripcion_id
+        FROM inscripcion i
+        JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+       WHERE i.inscripcion_id = $1
+         AND i.estudiante_id = $2
+         AND i.estado = 'Inscrita'
+         AND p.cerrado = FALSE
+    `, [enrollmentId, studentId])
+    if (!target.rows[0]) { await client.query('ROLLBACK'); return null }
+
+    await client.query(`
+      DELETE FROM nota
+       WHERE evaluacion_id IN (SELECT evaluacion_id FROM evaluacion WHERE inscripcion_id = $1)
+    `, [enrollmentId])
+    await client.query('DELETE FROM evaluacion WHERE inscripcion_id = $1', [enrollmentId])
+
+    for (const evaluation of evaluations) {
+      const inserted = await client.query(`
+        INSERT INTO evaluacion (inscripcion_id, nombre, porcentaje)
+        VALUES ($1, $2, $3)
+        RETURNING evaluacion_id AS id
+      `, [enrollmentId, evaluation.nombre, evaluation.porcentaje])
+      if (evaluation.nota !== undefined) {
+        await client.query(
+          'INSERT INTO nota (evaluacion_id, nota) VALUES ($1, $2)',
+          [inserted.rows[0].id, evaluation.nota],
+        )
+      }
+    }
+
+    await client.query('COMMIT')
+    return findEnrollmentEvaluations(studentId, enrollmentId)
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export async function findSchedule(studentId: number) {
@@ -165,7 +230,9 @@ export async function findSchedule(studentId: number) {
       JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
       JOIN materia m ON m.materia_id = i.materia_id
       JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
-      LEFT JOIN docente d ON d.docente_id = h.docente_id
+      LEFT JOIN docente d
+        ON d.docente_id = h.docente_id
+       AND d.creado_por_estudiante_id = i.estudiante_id
       LEFT JOIN aula au ON au.aula_id = h.aula_id
      WHERE i.estudiante_id = $1
        AND i.estado = 'Inscrita'
@@ -181,18 +248,46 @@ export async function createSchedule(studentId: number, enrollmentId: number, da
   horaInicio: string
   horaFin: string
 }) {
-  const result = await pool.query(`
-    INSERT INTO horario (inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin)
-    SELECT i.inscripcion_id, $3, $4, $5, $6, $7
-      FROM inscripcion i
-      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
-     WHERE i.inscripcion_id = $1
-       AND i.estudiante_id = $2
-       AND i.estado = 'Inscrita'
-       AND p.cerrado = FALSE
-    RETURNING horario_id AS id, inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin
-  `, [enrollmentId, studentId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
-  return result.rows[0] ?? null
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const target = await client.query(`
+      SELECT i.periodo_academico_id AS periodo_id
+        FROM inscripcion i
+        JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+       WHERE i.inscripcion_id = $1 AND i.estudiante_id = $2
+         AND i.estado = 'Inscrita' AND p.cerrado = FALSE
+    `, [enrollmentId, studentId])
+    if (!target.rows[0]) { await client.query('ROLLBACK'); return null }
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`schedule:${studentId}:${target.rows[0].periodo_id}`])
+    const conflict = await client.query(`
+      SELECT h.horario_id
+        FROM horario h
+        JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
+       WHERE i.estudiante_id = $1
+         AND i.periodo_academico_id = $2
+         AND i.estado = 'Inscrita'
+         AND h.dia_semana = $3
+         AND h.hora_inicio < $5::time
+         AND h.hora_fin > $4::time
+       LIMIT 1
+    `, [studentId, target.rows[0].periodo_id, data.diaSemana, data.horaInicio, data.horaFin])
+    if (conflict.rows[0]) { await client.query('ROLLBACK'); return { conflict: true as const } }
+
+    const result = await client.query(`
+      INSERT INTO horario (inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING horario_id AS id, inscripcion_id, docente_id, aula_id, dia_semana, hora_inicio, hora_fin
+    `, [enrollmentId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
+    await client.query('COMMIT')
+    return result.rows[0] ?? null
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export async function updateSchedule(studentId: number, scheduleId: number, data: {
@@ -202,20 +297,51 @@ export async function updateSchedule(studentId: number, scheduleId: number, data
   horaInicio: string
   horaFin: string
 }) {
-  const result = await pool.query(`
-    UPDATE horario h
-       SET docente_id = $3, aula_id = $4, dia_semana = $5,
-           hora_inicio = $6, hora_fin = $7
-      FROM inscripcion i
-      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
-     WHERE h.horario_id = $1 AND h.inscripcion_id = i.inscripcion_id
-       AND i.estudiante_id = $2
-       AND i.estado = 'Inscrita'
-       AND p.cerrado = FALSE
-     RETURNING h.horario_id AS id, h.inscripcion_id, h.docente_id,
-               h.aula_id, h.dia_semana, h.hora_inicio, h.hora_fin
-  `, [scheduleId, studentId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
-  return result.rows[0] ?? null
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const target = await client.query(`
+      SELECT i.inscripcion_id, i.periodo_academico_id AS periodo_id
+        FROM horario h
+        JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
+        JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+       WHERE h.horario_id = $1 AND i.estudiante_id = $2
+         AND i.estado = 'Inscrita' AND p.cerrado = FALSE
+    `, [scheduleId, studentId])
+    if (!target.rows[0]) { await client.query('ROLLBACK'); return null }
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`schedule:${studentId}:${target.rows[0].periodo_id}`])
+    const conflict = await client.query(`
+      SELECT h.horario_id
+        FROM horario h
+        JOIN inscripcion i ON i.inscripcion_id = h.inscripcion_id
+       WHERE i.estudiante_id = $1
+         AND i.periodo_academico_id = $2
+         AND i.estado = 'Inscrita'
+         AND h.horario_id <> $3
+         AND h.dia_semana = $4
+         AND h.hora_inicio < $6::time
+         AND h.hora_fin > $5::time
+       LIMIT 1
+    `, [studentId, target.rows[0].periodo_id, scheduleId, data.diaSemana, data.horaInicio, data.horaFin])
+    if (conflict.rows[0]) { await client.query('ROLLBACK'); return { conflict: true as const } }
+
+    const result = await client.query(`
+      UPDATE horario
+         SET docente_id = $2, aula_id = $3, dia_semana = $4,
+             hora_inicio = $5, hora_fin = $6
+       WHERE horario_id = $1
+       RETURNING horario_id AS id, inscripcion_id, docente_id, aula_id,
+                 dia_semana, hora_inicio, hora_fin
+    `, [scheduleId, data.docenteId, data.aulaId, data.diaSemana, data.horaInicio, data.horaFin])
+    await client.query('COMMIT')
+    return result.rows[0] ?? null
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
 
 export async function findScheduleConflict(studentId: number, enrollmentId: number, data: {
@@ -312,24 +438,30 @@ export async function findAttendanceSummary(studentId: number) {
   return result.rows
 }
 
-export async function isStudentEnrolled(studentId: number, subjectId: number) {
+export async function findStudentSubjectPeriod(studentId: number, subjectId: number) {
   const result = await pool.query(`
-    SELECT 1 FROM inscripcion
-     WHERE estudiante_id = $1 AND materia_id = $2 AND estado <> 'Retirada'
+    SELECT i.periodo_academico_id AS periodo_id
+      FROM inscripcion i
+      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+     WHERE i.estudiante_id = $1
+       AND i.materia_id = $2
+       AND i.estado <> 'Retirada'
+     ORDER BY p.periodo_academico_id DESC
      LIMIT 1
   `, [studentId, subjectId])
-  return result.rowCount === 1
+  return result.rows[0]?.periodo_id ?? null
 }
 
-export async function findClassmates(studentId: number, subjectId: number) {
+export async function findClassmates(studentId: number, subjectId: number, periodId: number) {
   const result = await pool.query(`
     SELECT DISTINCT e.estudiante_id AS id, e.nombres, e.apellidos, e.numero_celular AS numero_celular
       FROM inscripcion i
       JOIN estudiante e ON e.estudiante_id = i.estudiante_id
      WHERE i.materia_id = $1
+       AND i.periodo_academico_id = $3
        AND i.estudiante_id <> $2
        AND i.estado <> 'Retirada'
      ORDER BY e.apellidos, e.nombres
-  `, [subjectId, studentId])
+  `, [subjectId, studentId, periodId])
   return result.rows
 }

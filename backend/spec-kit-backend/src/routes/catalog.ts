@@ -7,7 +7,7 @@ import { AppError } from '../utils/errors.js'
 
 export const catalogRoutes = new Hono<AppEnv>()
 
-catalogRoutes.get('/teachers', async (c) => c.json({ success: true, data: await findTeachers() }))
+catalogRoutes.get('/teachers', async (c) => c.json({ success: true, data: await findTeachers(c.get('studentId')) }))
 catalogRoutes.get('/classrooms', async (c) => c.json({ success: true, data: await findClassrooms() }))
 catalogRoutes.post('/teachers', async (c) => {
   const parsed = teacherSchema.safeParse(await c.req.json().catch(() => null))

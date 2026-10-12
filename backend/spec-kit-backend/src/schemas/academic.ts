@@ -24,6 +24,23 @@ export const scheduleSchema = z.object({
   path: ['horaFin'],
 })
 
+export const evaluationsSchema = z.object({
+  evaluaciones: z.array(z.object({
+    nombre: z.string().trim().min(1).max(80),
+    porcentaje: z.number().positive().max(100),
+    nota: z.number().min(0).max(100).optional(),
+  })).min(1),
+}).superRefine((value, context) => {
+  const names = value.evaluaciones.map((item) => item.nombre.toLocaleLowerCase())
+  if (new Set(names).size !== names.length) {
+    context.addIssue({ code: 'custom', path: ['evaluaciones'], message: 'No puede repetir el nombre de una evaluación' })
+  }
+  const total = value.evaluaciones.reduce((sum, item) => sum + item.porcentaje, 0)
+  if (Math.round(total * 100) !== 10000) {
+    context.addIssue({ code: 'custom', path: ['evaluaciones'], message: 'La ponderación total debe ser exactamente 100%' })
+  }
+})
+
 export const profileSchema = z.object({
   nombres: z.string().trim().min(2).max(100).optional(),
   apellidos: z.string().trim().min(2).max(100).optional(),

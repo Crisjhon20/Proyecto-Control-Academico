@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --ink: #0e1b28;
+  --navy: #102431;
+  --panel: #142d3a;
+  --panel-soft: #193746;
+  --line: #2a4a59;
+  --mist: #e9f1f4;
+  --muted: #9db2bd;
+  --cyan: #73b8d5;
+  --cyan-strong: #2d8fb8;
+  --danger: #ef8b8b;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--navy);
+  color: var(--mist);
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #32647a;
+  border-radius: 0.85rem;
+  color: var(--cyan);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  padding: 0.55rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.display { letter-spacing: -0.065em; line-height: 0.98; }
+.surface { background: var(--panel); border: 1px solid var(--line); }
+.surface-soft { background: rgba(25, 55, 70, 0.72); border: 1px solid var(--line); }
+.focus-ring:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.hero-grid {
+  background-image: linear-gradient(rgba(115,184,213,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(115,184,213,.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.glow {
+  background: radial-gradient(circle, rgba(56, 149, 191, .45), transparent 68%);
+  filter: blur(10px);
+}
+
+.input-field {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #0e202c;
+  color: var(--mist);
+  padding: 0.8rem 0.9rem;
+  outline: none;
+}
+.input-field:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(115,184,213,.12); }
+.input-field::placeholder { color: #6d8996; }
+
+.btn-primary {
+  border-radius: 0.75rem;
+  background: var(--cyan);
+  color: #0c2532;
+  font-weight: 800;
+  padding: 0.8rem 1rem;
+  transition: transform .2s, background .2s;
+}
+.btn-primary:hover { background: #8ccbe4; transform: translateY(-1px); }
+.btn-secondary { border: 1px solid var(--line); border-radius: .75rem; padding: .8rem 1rem; color: var(--mist); }
+.btn-secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+.btn-danger { color: var(--danger); }
+
+.scrollbar-thin::-webkit-scrollbar { height: 5px; width: 5px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #356477; border-radius: 8px; }
+
+@media (max-width: 768px) {
+  .display { letter-spacing: -0.05em; }
+}
