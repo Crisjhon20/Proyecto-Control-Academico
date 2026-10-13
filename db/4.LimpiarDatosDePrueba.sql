@@ -10,13 +10,6 @@ DELETE FROM nota
       JOIN estudiante s ON s.estudiante_id = i.estudiante_id
  );
 
-DELETE FROM asistencia
- WHERE inscripcion_id IN (
-    SELECT i.inscripcion_id
-      FROM inscripcion i
-      JOIN estudiante s ON s.estudiante_id = i.estudiante_id
- );
-
 DELETE FROM horario
  WHERE inscripcion_id IN (
     SELECT i.inscripcion_id
@@ -35,6 +28,7 @@ DELETE FROM historial_academico
  WHERE estudiante_id IN (SELECT estudiante_id FROM estudiante);
 
 DELETE FROM inscripcion;
+DELETE FROM periodo_estudiante;
 DELETE FROM docente WHERE creado_por_estudiante_id IS NOT NULL;
 DELETE FROM estudiante;
 

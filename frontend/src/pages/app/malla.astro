@@ -2,11 +2,63 @@
 import AppLayout from '../../layouts/AppLayout.astro'
 ---
 <AppLayout title="Malla curricular | Control Académico" active="malla">
-  <span class="eyebrow">Oferta académica</span><h1 class="display mt-6 max-w-4xl text-5xl font-extrabold sm:text-6xl">Tu carrera,<br /><span class="text-[#70b6d4]">semestre a semestre.</span></h1><p class="mt-5 max-w-2xl text-sm leading-7 text-[#9db2bd]">Consulta las materias de Ingeniería en Sistemas, sus códigos y créditos.</p>
-  <div id="curriculum" class="mt-12 space-y-5"><div class="h-32 animate-pulse rounded-2xl bg-[#193746]"></div></div>
+  <span class="eyebrow">Oferta académica</span>
+  <h1 class="display mt-6 max-w-4xl text-5xl font-extrabold sm:text-6xl">Tu carrera,<br /><span class="text-[#70b6d4]">semestre a semestre.</span></h1>
+  <p class="mt-5 max-w-2xl text-sm leading-7 text-[#9db2bd]">Consulta las materias de Ingeniería en Sistemas, sus códigos, créditos y avance académico.</p>
+  <div class="mt-8 flex flex-wrap gap-2 text-xs text-[#a9bbc5]" aria-label="Estados de materias">
+    <span class="inline-flex items-center gap-2 rounded-full border border-[#39765f] bg-[#173b34] px-3 py-2"><span class="h-2 w-2 rounded-full bg-[#65c69b]"></span>Aprobada</span>
+    <span class="inline-flex items-center gap-2 rounded-full border border-[#376478] bg-[#193b4b] px-3 py-2"><span class="h-2 w-2 rounded-full bg-[#73b8d5]"></span>Cursando</span>
+    <span class="inline-flex items-center gap-2 rounded-full border border-[#52616a] bg-[#1c3039] px-3 py-2"><span class="h-2 w-2 rounded-full bg-[#a9bbc5]"></span>Pendiente</span>
+    <span class="inline-flex items-center gap-2 rounded-full border border-[#75554b] bg-[#382b2a] px-3 py-2"><span class="h-2 w-2 rounded-full bg-[#e3a083]"></span>Reprobada</span>
+  </div>
+  <div id="curriculum" class="mt-8 space-y-5"><div class="h-32 animate-pulse rounded-2xl bg-[#193746]"></div></div>
 </AppLayout>
 <script>
-  import { api } from '../../lib/api'; import { requireSession } from '../../lib/session'; requireSession()
+  import { api } from '../../lib/api'
+  import { requireSession } from '../../lib/session'
+
+  requireSession()
   const root = document.querySelector('#curriculum')!
-  try { const data: any[] = await api.curriculum() as any[]; root.innerHTML = data.flatMap((career: any) => career.semestres.map((semester: any) => `<section class="surface rounded-2xl p-5 sm:p-7"><div class="flex items-center justify-between gap-4"><div><span class="eyebrow">Semestre ${semester.semestre}</span><h2 class="mt-4 text-2xl font-bold">Materias del periodo</h2></div><span class="text-sm text-[#8fa9b5]">${semester.materias.length} materias · ${semester.materias.length * 5} créditos</span></div><div class="mt-6 grid gap-3 md:grid-cols-2">${semester.materias.map((subject: any) => `<article class="surface-soft flex items-center justify-between rounded-xl p-4"><div><span class="text-xs font-extrabold tracking-[.1em] text-[#73b8d5]">${subject.codigo}</span><h3 class="mt-1 font-semibold">${subject.nombre}</h3></div><span class="rounded-full border border-[#376478] px-3 py-1 text-xs text-[#a9c5cf]">${subject.creditos} cr</span></article>`).join('')}</div></section>`)).join('') } catch { root.innerHTML = '<p class="text-[#efaaaa]">No se pudo cargar la malla curricular.</p>' }
+
+  const escapeHtml = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  })[character] || character)
+
+  const subjectStatus = (subjectId: number, history: any[], enrollments: any[]) => {
+    if (history.some((item) => item.materia_id === subjectId && item.estado === 'Aprobada')) return 'approved'
+    if (enrollments.some((item) => item.materia_id === subjectId && item.estado === 'Inscrita')) return 'enrolled'
+    if (history.some((item) => item.materia_id === subjectId && item.estado === 'Reprobada')) return 'failed'
+    return 'pending'
+  }
+
+  const statusPresentation: Record<string, { label: string; className: string; dot: string }> = {
+    approved: { label: 'Aprobada', className: 'border-[#39765f] bg-[#173b34]', dot: 'bg-[#65c69b]' },
+    enrolled: { label: 'Cursando', className: 'border-[#376478] bg-[#193b4b]', dot: 'bg-[#73b8d5]' },
+    failed: { label: 'Reprobada', className: 'border-[#75554b] bg-[#382b2a]', dot: 'bg-[#e3a083]' },
+    pending: { label: 'Pendiente', className: 'border-[#52616a] bg-[#1c3039]', dot: 'bg-[#a9bbc5]' },
+  }
+
+  try {
+    const [curriculum, history, enrollments] = await Promise.all([
+      api.curriculum() as Promise<any[]>,
+      api.history() as Promise<any[]>,
+      api.enrollments() as Promise<any[]>,
+    ])
+
+    root.innerHTML = curriculum.flatMap((career: any) => career.semestres.map((semester: any) => {
+      const totalCredits = semester.materias.reduce((total: number, subject: any) => total + Number(subject.creditos || 0), 0)
+      const subjects = semester.materias.map((subject: any) => {
+        const status = statusPresentation[subjectStatus(subject.id, history, enrollments)]
+        return `<article class="surface-soft flex min-h-[112px] flex-col justify-between rounded-xl p-4 transition hover:border-[#73b8d5] ${status.className}">
+          <div class="flex items-start justify-between gap-3"><span class="text-xs font-extrabold tracking-[.1em] text-[#73b8d5]">${escapeHtml(subject.codigo)}</span><span class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-[.68rem] text-[#c3d5db]"><span class="h-1.5 w-1.5 rounded-full ${status.dot}"></span>${status.label}</span></div>
+          <h3 class="mt-3 text-sm font-semibold leading-5 text-[#e9f1f4]">${escapeHtml(subject.nombre)}</h3>
+          <span class="mt-3 text-xs text-[#a9c5cf]">${escapeHtml(subject.creditos)} créditos</span>
+        </article>`
+      }).join('')
+
+      return `<section class="surface rounded-2xl p-5 sm:p-7"><div class="flex flex-wrap items-end justify-between gap-4"><div><span class="eyebrow">Semestre ${escapeHtml(semester.semestre)}</span><h2 class="mt-4 text-2xl font-bold">Materias del periodo</h2></div><span class="text-sm text-[#8fa9b5]">${semester.materias.length} materias · ${totalCredits} créditos</span></div><div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">${subjects}</div></section>`
+    })).join('')
+  } catch {
+    root.innerHTML = '<p class="text-[#efaaaa]">No se pudo cargar la malla curricular.</p>'
+  }
 </script>

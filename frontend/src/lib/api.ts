@@ -10,7 +10,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = getSession()
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
-  if (init.body) headers.set('Content-Type', 'application/json')
+  if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
 
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers })
@@ -22,15 +22,37 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body.data as T
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const session = getSession()
+  const headers = new Headers({ Accept: 'image/*' })
+  if (session?.token) headers.set('Authorization', `Bearer ${session.token}`)
+
+  const response = await fetch(`${baseUrl}${path}`, { headers })
+  if (!response.ok) {
+    if (response.status === 401) { clearSession(); window.location.href = '/login' }
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, body?.error?.code || 'REQUEST_ERROR', body?.error?.message || 'No se pudo cargar la imagen')
+  }
+  return response.blob()
+}
+
 export const api = {
   login: (data: { numeroRegistro: string; contrasena: string }) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   register: (data: object) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   profile: () => request('/students/me'),
   updateProfile: (data: object) => request('/students/me', { method: 'PATCH', body: JSON.stringify(data) }),
+  profilePhoto: () => requestBlob('/students/me/photo'),
+  uploadProfilePhoto: (file: File) => {
+    const formData = new FormData()
+    formData.append('photo', file)
+    return request('/students/me/photo', { method: 'PUT', body: formData })
+  },
   curriculum: () => request('/curriculum'),
   periods: () => request('/periods'),
   currentPeriod: () => request('/periods/current'),
+  createPeriod: (data: { nombre: string; fechaInicio?: string; fechaFin?: string }) => request('/periods', { method: 'POST', body: JSON.stringify(data) }),
+  closePeriod: (id: number) => request(`/periods/${id}/close`, { method: 'POST' }),
   enrollments: (periodId?: number) => request(`/enrollments${periodId ? `?periodoId=${periodId}` : ''}`),
   availableSubjects: (periodId: number) => request(`/enrollments/available?periodoId=${periodId}`),
   enroll: (data: object) => request('/enrollments', { method: 'POST', body: JSON.stringify(data) }),
@@ -47,7 +69,4 @@ export const api = {
   deleteSchedule: (id: number) => request(`/schedule/${id}`, { method: 'DELETE' }),
   history: () => request('/academic/history'),
   grades: () => request('/academic/grades'),
-  attendance: () => request('/academic/attendance'),
-  attendanceSummary: () => request('/academic/attendance/summary'),
-  registerAttendance: (data: object) => request('/academic/attendance', { method: 'POST', body: JSON.stringify(data) }),
 }

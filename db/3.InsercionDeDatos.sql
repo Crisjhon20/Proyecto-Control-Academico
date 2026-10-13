@@ -71,7 +71,7 @@ FROM (VALUES
 JOIN malla_curricular AS malla
     ON malla.nombre = 'Ingeniería en Sistemas';
 
-INSERT INTO periodo_academico (nombre)
+INSERT INTO ciclo_academico (nombre)
 VALUES ('2026-I'), ('2026-II'), ('2027-I');
 
 INSERT INTO aula (numero)

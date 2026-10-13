@@ -5,7 +5,6 @@ export const idParamSchema = z.coerce.number().int().positive()
 export const enrollmentSchema = z.object({
   materiaId: z.number().int().positive(),
   periodoAcademicoId: z.number().int().positive(),
-  semestreCursado: z.number().int().min(1).max(20),
 })
 
 export const teacherSchema = z.object({
@@ -41,15 +40,18 @@ export const evaluationsSchema = z.object({
   }
 })
 
-export const attendanceSchema = z.object({
-  inscripcionId: z.number().int().positive(),
-  fechaClase: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  estado: z.enum(['Asistió', 'Faltó']),
-})
-
 export const profileSchema = z.object({
   nombres: z.string().trim().min(2).max(100).optional(),
   apellidos: z.string().trim().min(2).max(100).optional(),
   numeroCelular: z.string().regex(/^[0-9+() -]{7,20}$/).optional(),
   contrasena: z.string().min(1).max(72).optional(),
 }).refine((value) => Object.keys(value).length > 0, 'Debe enviar al menos un campo')
+
+export const periodSchema = z.object({
+  nombre: z.string().trim().regex(/^[0-9]{4}-(I|II)$/, 'El ciclo debe tener el formato AAAA-I o AAAA-II'),
+  fechaInicio: z.string().date().optional(),
+  fechaFin: z.string().date().optional(),
+}).refine((value) => !value.fechaInicio || !value.fechaFin || value.fechaInicio <= value.fechaFin, {
+  message: 'La fecha de inicio debe ser anterior o igual a la fecha final',
+  path: ['fechaFin'],
+})

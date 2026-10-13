@@ -1,11 +1,10 @@
 import bcrypt from 'bcrypt'
+import sharp from 'sharp'
 import {
   createEnrollment,
   createSchedule,
   createTeacher,
   deleteSchedule,
-  findAttendance,
-  findAttendanceSummary,
   findAvailableSubjects,
   findClassmates,
   findCurrentPeriod,
@@ -27,15 +26,35 @@ import {
   updateSchedule,
   withdrawEnrollment,
   replaceEnrollmentEvaluations,
-  upsertAttendance,
+  createPeriod,
 } from '../repositories/academic.js'
-import { findStudentById, updateStudent } from '../repositories/student.js'
+import { findStudentById, updateStudent, updateStudentPhoto, findStudentPhoto } from '../repositories/student.js'
 import { AppError } from '../utils/errors.js'
 
 export async function getProfile(studentId: number) {
   const student = await findStudentById(studentId)
   if (!student) throw new AppError(404, 'STUDENT_NOT_FOUND', 'Estudiante no encontrado')
   return student
+}
+
+export async function getCurrentAcademicPeriod(studentId: number) {
+  return findCurrentPeriod(studentId)
+}
+
+export async function getAcademicPeriods(studentId: number) {
+  return findPeriods(studentId)
+}
+
+export async function createAcademicPeriod(studentId: number, input: {
+  nombre: string
+  fechaInicio?: string
+  fechaFin?: string
+}) {
+  const period = await createPeriod(studentId, input)
+  if ('conflict' in period && period.conflict) {
+    throw new AppError(409, 'ACTIVE_PERIOD_EXISTS', 'Debes cerrar tu periodo actual antes de crear uno nuevo')
+  }
+  return period
 }
 
 export async function updateProfile(studentId: number, input: {
@@ -48,6 +67,43 @@ export async function updateProfile(studentId: number, input: {
   const student = await updateStudent(studentId, data)
   if (!student) throw new AppError(404, 'STUDENT_NOT_FOUND', 'Estudiante no encontrado')
   return student
+}
+
+const maxProfilePhotoUploadBytes = 10 * 1024 * 1024
+const maxProfilePhotoBytes = 2 * 1024 * 1024
+const profilePhotoWidth = 800
+
+async function normalizeProfilePhoto(data: Buffer) {
+  for (const quality of [82, 70, 55]) {
+    const normalized = await sharp(data, { limitInputPixels: 40_000_000 })
+      .rotate()
+      .resize({ width: profilePhotoWidth, height: profilePhotoWidth, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality, effort: 4 })
+      .toBuffer()
+    if (normalized.length <= maxProfilePhotoBytes) return normalized
+  }
+  throw new AppError(400, 'PHOTO_TOO_LARGE', 'No se pudo comprimir la foto por debajo de 2 MB')
+}
+
+export async function saveProfilePhoto(studentId: number, file: File) {
+  if (file.size === 0 || file.size > maxProfilePhotoUploadBytes) throw new AppError(400, 'INVALID_PHOTO_SIZE', 'La foto original debe pesar entre 1 byte y 10 MB')
+
+  const data = Buffer.from(await file.arrayBuffer())
+  let normalized: Buffer
+  try {
+    normalized = await normalizeProfilePhoto(data)
+  } catch (error) {
+    if (error instanceof AppError) throw error
+    throw new AppError(400, 'INVALID_PHOTO', 'El archivo no es una imagen válida o no se pudo procesar')
+  }
+
+  const result = await updateStudentPhoto(studentId, normalized, 'image/webp')
+  if (!result) throw new AppError(404, 'STUDENT_NOT_FOUND', 'Estudiante no encontrado')
+  return { uploaded: true, mimeType: 'image/webp', size: normalized.length }
+}
+
+export async function getProfilePhoto(studentId: number) {
+  return findStudentPhoto(studentId)
 }
 
 export async function getCurriculum() {
@@ -85,19 +141,18 @@ export async function getEnrollmentList(studentId: number, periodId?: number) {
 }
 
 export async function getAvailableSubjects(studentId: number, periodId: number) {
-  const period = await findPeriods()
-  const selectedPeriod = period.find((item) => item.id === periodId)
-  if (!selectedPeriod) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
-  if (selectedPeriod.cerrado) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico está cerrado')
+  const period = (await findPeriods(studentId)).find((item) => item.id === periodId)
+  if (!period) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
+  if (period.cerrado || !period.activo) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico no está disponible')
   return findAvailableSubjects(studentId, periodId)
 }
 
-export async function enroll(studentId: number, input: { materiaId: number; periodoAcademicoId: number; semestreCursado: number }) {
-  const [subject, periods] = await Promise.all([findSubject(input.materiaId), findPeriods()])
+export async function enroll(studentId: number, input: { materiaId: number; periodoAcademicoId: number }) {
+  const [subject, periods] = await Promise.all([findSubject(input.materiaId), findPeriods(studentId)])
   if (!subject) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
   const selectedPeriod = periods.find((item) => item.id === input.periodoAcademicoId)
   if (!selectedPeriod) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
-  if (selectedPeriod.cerrado) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico está cerrado')
+  if (selectedPeriod.cerrado || !selectedPeriod.activo) throw new AppError(409, 'PERIOD_CLOSED', 'El periodo académico no está disponible')
   try {
     return await createEnrollment(studentId, input)
   } catch (error: any) {
@@ -193,21 +248,12 @@ export async function removeSchedule(studentId: number, id: number) {
   return result
 }
 
-export async function registerAttendance(studentId: number, input: {
-  inscripcionId: number
-  fechaClase: string
-  estado: 'Asistió' | 'Faltó'
-}) {
-  const result = await upsertAttendance(studentId, input)
-  if (!result) throw new AppError(404, 'ATTENDANCE_NOT_FOUND', 'La materia no existe, no pertenece al estudiante o no tiene horario para ese día')
-  return result
-}
-
-export async function closeAcademicPeriod(periodId: number) {
-  const period = await findPeriod(periodId)
+export async function closeAcademicPeriod(studentId: number, periodId: number) {
+  const period = await findPeriod(studentId, periodId)
   if (!period) throw new AppError(404, 'PERIOD_NOT_FOUND', 'Periodo académico no encontrado')
   if (period.cerrado) throw new AppError(409, 'PERIOD_ALREADY_CLOSED', 'El periodo ya está cerrado')
-  return closePeriod(periodId)
+  if (!period.activo) throw new AppError(409, 'PERIOD_NOT_ACTIVE', 'Solo puedes cerrar tu periodo activo')
+  return closePeriod(studentId, periodId)
 }
 
-export { findCurrentPeriod, findPeriods, findTeachers, findClassrooms, findHistory, findGrades, findSchedule, findAttendance, findAttendanceSummary }
+export { findTeachers, findClassrooms, findHistory, findGrades, findSchedule }

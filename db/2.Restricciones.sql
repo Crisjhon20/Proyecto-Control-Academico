@@ -12,6 +12,8 @@ ALTER TABLE estudiante
         CHECK (numero_celular IS NOT NULL AND numero_celular ~ '^[0-9+() -]{7,20}$'),
     ADD CONSTRAINT ck_estudiante_contrasena
         CHECK (contrasena IS NOT NULL AND contrasena ~ '^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$'),
+    ADD CONSTRAINT ck_estudiante_foto_perfil
+        CHECK (foto_perfil IS NULL OR (foto_perfil_mime IN ('image/jpeg', 'image/png', 'image/webp') AND octet_length(foto_perfil) <= 2097152)),
     ADD CONSTRAINT ck_estudiante_rol
         CHECK (rol IS NOT NULL AND rol = 'ESTUDIANTE');
 
@@ -29,10 +31,19 @@ ALTER TABLE materia
     ADD CONSTRAINT ck_materia_creditos
         CHECK (creditos IS NOT NULL AND creditos > 0);
 
-ALTER TABLE periodo_academico
-    ADD CONSTRAINT ck_periodo_academico_nombre
+ALTER TABLE ciclo_academico
+    ADD CONSTRAINT ck_ciclo_academico_nombre
         CHECK (nombre IS NOT NULL AND nombre ~ '^[0-9]{4}-(I|II)$'),
-    ADD CONSTRAINT ck_periodo_academico_cierre
+    ADD CONSTRAINT uq_ciclo_academico_nombre UNIQUE (nombre);
+
+ALTER TABLE periodo_estudiante
+    ADD CONSTRAINT ck_periodo_estudiante_nombre
+        CHECK (nombre IS NOT NULL AND nombre ~ '^[0-9]{4}-(I|II)$'),
+    ADD CONSTRAINT ck_periodo_estudiante_fechas
+        CHECK (fecha_fin IS NULL OR fecha_inicio IS NULL OR fecha_inicio <= fecha_fin),
+    ADD CONSTRAINT ck_periodo_estudiante_activo
+        CHECK (activo = FALSE OR cerrado = FALSE),
+    ADD CONSTRAINT ck_periodo_estudiante_cierre
         CHECK ((cerrado = FALSE AND fecha_cierre IS NULL) OR (cerrado = TRUE AND fecha_cierre IS NOT NULL));
 
 ALTER TABLE inscripcion
@@ -83,10 +94,6 @@ ALTER TABLE historial_academico
     ADD CONSTRAINT ck_historial_estado
         CHECK (estado IS NOT NULL AND estado IN ('Inscrita', 'Retirada', 'Aprobada', 'Reprobada'));
 
-ALTER TABLE asistencia
-    ADD CONSTRAINT ck_asistencia_estado
-        CHECK (estado IS NOT NULL AND estado IN ('Asistió', 'Faltó'));
-
 -- DEFAULT
 ALTER TABLE inscripcion
     ALTER COLUMN estado SET DEFAULT 'Inscrita';
@@ -105,12 +112,12 @@ ALTER TABLE materia
     ADD CONSTRAINT uq_materia_malla_codigo UNIQUE (malla_curricular_id, codigo),
     ADD CONSTRAINT uq_materia_malla_nombre UNIQUE (malla_curricular_id, nombre);
 
-ALTER TABLE periodo_academico
-    ADD CONSTRAINT uq_periodo_academico_nombre UNIQUE (nombre);
+ALTER TABLE periodo_estudiante
+    ADD CONSTRAINT uq_periodo_estudiante_ciclo UNIQUE (estudiante_id, ciclo_academico_id);
 
 ALTER TABLE inscripcion
     ADD CONSTRAINT uq_inscripcion_estudiante_materia_periodo
-        UNIQUE (estudiante_id, materia_id, periodo_academico_id);
+        UNIQUE (estudiante_id, materia_id, periodo_estudiante_id);
 
 ALTER TABLE evaluacion
     ADD CONSTRAINT uq_evaluacion_inscripcion_nombre UNIQUE (inscripcion_id, nombre);
@@ -122,42 +129,43 @@ ALTER TABLE horario
     ADD CONSTRAINT uq_horario_inscripcion_dia_hora
         UNIQUE (inscripcion_id, dia_semana, hora_inicio, hora_fin);
 
-ALTER TABLE asistencia
-    ADD CONSTRAINT uq_asistencia_inscripcion_fecha
-        UNIQUE (inscripcion_id, fecha_clase);
-
 ALTER TABLE docente
     ADD CONSTRAINT uq_docente_estudiante_nombre
         UNIQUE (creado_por_estudiante_id, nombres, apellidos);
 
 ALTER TABLE historial_academico
     ADD CONSTRAINT uq_historial_estudiante_materia_periodo
-        UNIQUE (estudiante_id, materia_id, periodo_academico_id);
+        UNIQUE (estudiante_id, materia_id, periodo_estudiante_id);
 
 CREATE INDEX idx_horario_inscripcion_dia_hora
     ON horario (inscripcion_id, dia_semana, hora_inicio, hora_fin);
 
+CREATE UNIQUE INDEX uq_periodo_estudiante_activo
+    ON periodo_estudiante (estudiante_id)
+    WHERE activo = TRUE;
+
 -- Al cerrar un periodo, se conserva una copia inmutable del resultado académico.
-CREATE OR REPLACE FUNCTION preparar_cierre_periodo()
+CREATE OR REPLACE FUNCTION preparar_cierre_periodo_estudiante()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.cerrado = TRUE AND OLD.cerrado = FALSE THEN
         NEW.fecha_cierre := COALESCE(NEW.fecha_cierre, CURRENT_TIMESTAMP);
+        NEW.activo := FALSE;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION archivar_historial_periodo()
+CREATE OR REPLACE FUNCTION archivar_historial_periodo_estudiante()
 RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.cerrado = TRUE AND OLD.cerrado = FALSE THEN
         INSERT INTO historial_academico
-            (estudiante_id, materia_id, periodo_academico_id,
+            (estudiante_id, materia_id, periodo_estudiante_id,
              semestre_cursado, nota_final, estado)
          SELECT i.estudiante_id,
                 i.materia_id,
-                i.periodo_academico_id,
+                i.periodo_estudiante_id,
                 i.semestre_cursado,
                 ROUND(COALESCE(SUM(n.nota * e.porcentaje / 100), 0), 2),
                 CASE
@@ -168,20 +176,20 @@ BEGIN
           FROM inscripcion i
           LEFT JOIN evaluacion e ON e.inscripcion_id = i.inscripcion_id
           LEFT JOIN nota n ON n.evaluacion_id = e.evaluacion_id
-         WHERE i.periodo_academico_id = NEW.periodo_academico_id
+         WHERE i.periodo_estudiante_id = NEW.periodo_estudiante_id
          GROUP BY i.estudiante_id, i.materia_id,
-                   i.periodo_academico_id, i.semestre_cursado, i.estado
-        ON CONFLICT (estudiante_id, materia_id, periodo_academico_id)
+                   i.periodo_estudiante_id, i.semestre_cursado, i.estado
+         ON CONFLICT (estudiante_id, materia_id, periodo_estudiante_id)
         DO NOTHING;
     END IF;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_preparar_cierre_periodo
-BEFORE UPDATE OF cerrado ON periodo_academico
-FOR EACH ROW EXECUTE FUNCTION preparar_cierre_periodo();
+CREATE TRIGGER trg_preparar_cierre_periodo_estudiante
+BEFORE UPDATE OF cerrado ON periodo_estudiante
+FOR EACH ROW EXECUTE FUNCTION preparar_cierre_periodo_estudiante();
 
-CREATE TRIGGER trg_archivar_historial_periodo
-AFTER UPDATE OF cerrado ON periodo_academico
-FOR EACH ROW EXECUTE FUNCTION archivar_historial_periodo();
+CREATE TRIGGER trg_archivar_historial_periodo_estudiante
+AFTER UPDATE OF cerrado ON periodo_estudiante
+FOR EACH ROW EXECUTE FUNCTION archivar_historial_periodo_estudiante();
