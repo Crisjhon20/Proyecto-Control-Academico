@@ -41,6 +41,12 @@ export const evaluationsSchema = z.object({
   }
 })
 
+export const attendanceSchema = z.object({
+  inscripcionId: z.number().int().positive(),
+  fechaClase: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  estado: z.enum(['Asistió', 'Faltó']),
+})
+
 export const profileSchema = z.object({
   nombres: z.string().trim().min(2).max(100).optional(),
   apellidos: z.string().trim().min(2).max(100).optional(),

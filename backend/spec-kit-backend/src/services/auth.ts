@@ -48,3 +48,20 @@ export async function loginStudent(input: LoginInput) {
     },
   }
 }
+
+export async function registerStudent(input: {
+  numeroRegistro: string
+  nombres: string
+  apellidos: string
+  numeroCelular: string
+  contrasena: string
+}) {
+  const password = await bcrypt.hash(input.contrasena, 8)
+  const result = await pool.query(`
+    INSERT INTO estudiante (numero_registro, nombres, apellidos, numero_celular, contrasena)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING estudiante_id AS id, numero_registro AS "numeroRegistro", nombres,
+              apellidos, numero_celular AS "numeroCelular", rol
+  `, [input.numeroRegistro, input.nombres, input.apellidos, input.numeroCelular, password])
+  return result.rows[0]
+}

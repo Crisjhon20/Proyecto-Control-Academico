@@ -220,9 +220,9 @@ export async function replaceEnrollmentEvaluations(studentId: number, enrollment
   }
 }
 
-export async function findSchedule(studentId: number) {
+export async function findSchedule(studentId: number, periodId?: number) {
   const result = await pool.query(`
-    SELECT i.inscripcion_id AS inscripcion_id, m.codigo, m.nombre AS materia,
+    SELECT h.horario_id AS id, i.inscripcion_id AS inscripcion_id, m.codigo, m.nombre AS materia,
            p.nombre AS periodo, h.dia_semana, h.hora_inicio, h.hora_fin,
            d.nombres AS docente_nombres, d.apellidos AS docente_apellidos,
            au.numero AS aula
@@ -234,10 +234,11 @@ export async function findSchedule(studentId: number) {
         ON d.docente_id = h.docente_id
        AND d.creado_por_estudiante_id = i.estudiante_id
       LEFT JOIN aula au ON au.aula_id = h.aula_id
-     WHERE i.estudiante_id = $1
-       AND i.estado = 'Inscrita'
-     ORDER BY h.dia_semana, h.hora_inicio
-  `, [studentId])
+      WHERE i.estudiante_id = $1
+        AND i.estado = 'Inscrita'
+        AND ($2::integer IS NULL OR i.periodo_academico_id = $2)
+      ORDER BY h.dia_semana, h.hora_inicio
+  `, [studentId, periodId ?? null])
   return result.rows
 }
 
@@ -354,8 +355,10 @@ export async function findScheduleConflict(studentId: number, enrollmentId: numb
       FROM horario h
       JOIN inscripcion existing_i ON existing_i.inscripcion_id = h.inscripcion_id
       JOIN inscripcion target_i ON target_i.inscripcion_id = $2
-     WHERE existing_i.estudiante_id = $1
-       AND existing_i.periodo_academico_id = target_i.periodo_academico_id
+      WHERE existing_i.estudiante_id = $1
+        AND existing_i.periodo_academico_id = target_i.periodo_academico_id
+        AND existing_i.estado = 'Inscrita'
+        AND target_i.estado = 'Inscrita'
        AND h.dia_semana = $3
        AND h.hora_inicio < $5::time
        AND h.hora_fin > $4::time
@@ -436,6 +439,40 @@ export async function findAttendanceSummary(studentId: number) {
      ORDER BY p.nombre DESC, m.codigo
   `, [studentId])
   return result.rows
+}
+
+export async function upsertAttendance(studentId: number, data: {
+  inscripcionId: number
+  fechaClase: string
+  estado: 'Asistió' | 'Faltó'
+}) {
+  const result = await pool.query(`
+    INSERT INTO asistencia (inscripcion_id, fecha_clase, estado)
+    SELECT i.inscripcion_id, $3::date, $4
+      FROM inscripcion i
+      JOIN periodo_academico p ON p.periodo_academico_id = i.periodo_academico_id
+     WHERE i.inscripcion_id = $1
+       AND i.estudiante_id = $2
+       AND i.estado = 'Inscrita'
+       AND p.cerrado = FALSE
+       AND EXISTS (
+         SELECT 1
+           FROM horario h
+          WHERE h.inscripcion_id = i.inscripcion_id
+            AND h.dia_semana = CASE EXTRACT(DOW FROM $3::date)
+              WHEN 1 THEN 'Lunes'
+              WHEN 2 THEN 'Martes'
+              WHEN 3 THEN 'Miércoles'
+              WHEN 4 THEN 'Jueves'
+              WHEN 5 THEN 'Viernes'
+              WHEN 6 THEN 'Sábado'
+            END
+       )
+    ON CONFLICT (inscripcion_id, fecha_clase)
+    DO UPDATE SET estado = EXCLUDED.estado
+    RETURNING asistencia_id AS id, inscripcion_id, fecha_clase, estado
+  `, [data.inscripcionId, studentId, data.fechaClase, data.estado])
+  return result.rows[0] ?? null
 }
 
 export async function findStudentSubjectPeriod(studentId: number, subjectId: number) {

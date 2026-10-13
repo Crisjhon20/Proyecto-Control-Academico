@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import PublicHeader from '../components/PublicHeader.astro'
+---
+<BaseLayout title="Crear cuenta | Control Académico">
+  <PublicHeader />
+  <main class="hero-grid flex min-h-[calc(100vh-65px)] items-center justify-center px-5 py-16"><section class="w-full max-w-xl rounded-3xl border border-[#315667] bg-[#0e1d29] p-7 shadow-2xl sm:p-12"><span class="eyebrow">Nuevo estudiante</span><h1 class="display mt-8 text-4xl font-extrabold">Crea tu cuenta.</h1><p class="mt-3 text-sm leading-6 text-[#9db2bd]">Después podrás registrar tus materias, horarios, notas y asistencias desde la plataforma.</p><form id="register-form" class="mt-8 grid gap-5 sm:grid-cols-2"><label class="text-sm text-[#c9d8de]">Número de registro<input class="input-field mt-2" name="numeroRegistro" inputmode="numeric" required /></label><label class="text-sm text-[#c9d8de]">Celular<input class="input-field mt-2" name="numeroCelular" required /></label><label class="text-sm text-[#c9d8de]">Nombres<input class="input-field mt-2" name="nombres" required /></label><label class="text-sm text-[#c9d8de]">Apellidos<input class="input-field mt-2" name="apellidos" required /></label><label class="text-sm text-[#c9d8de] sm:col-span-2">Contraseña<input class="input-field mt-2" type="password" name="contrasena" minlength="8" required /></label><p id="register-error" class="hidden rounded-lg border p-3 text-sm sm:col-span-2"></p><button class="btn-primary sm:col-span-2" type="submit">Crear cuenta ↗</button></form><a href="/login" class="mt-6 block text-center text-sm text-[#73b8d5] hover:underline">Ya tengo una cuenta</a></section></main>
+</BaseLayout>
+<script>
+  import { api, ApiError } from '../lib/api'; import { registerSchema } from '../lib/schemas'
+  const form = document.querySelector<HTMLFormElement>('#register-form')!; const error = document.querySelector('#register-error')!
+  form.addEventListener('submit', async event => { event.preventDefault(); const parsed = registerSchema.safeParse(Object.fromEntries(new FormData(form).entries())); if (!parsed.success) { error.textContent = parsed.error.issues[0]?.message || 'Revisa los datos'; error.className = 'rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa] sm:col-span-2'; return } try { await api.register(parsed.data); window.location.href = '/login' } catch (err) { error.textContent = err instanceof ApiError ? err.message : 'No se pudo crear la cuenta'; error.className = 'rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa] sm:col-span-2' } })
+</script>

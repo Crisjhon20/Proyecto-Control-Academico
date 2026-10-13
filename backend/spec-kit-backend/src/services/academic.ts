@@ -27,6 +27,7 @@ import {
   updateSchedule,
   withdrawEnrollment,
   replaceEnrollmentEvaluations,
+  upsertAttendance,
 } from '../repositories/academic.js'
 import { findStudentById, updateStudent } from '../repositories/student.js'
 import { AppError } from '../utils/errors.js'
@@ -189,6 +190,16 @@ export async function changeSchedule(studentId: number, id: number, data: {
 export async function removeSchedule(studentId: number, id: number) {
   const result = await deleteSchedule(studentId, id)
   if (!result) throw new AppError(404, 'SCHEDULE_NOT_FOUND', 'Horario no encontrado')
+  return result
+}
+
+export async function registerAttendance(studentId: number, input: {
+  inscripcionId: number
+  fechaClase: string
+  estado: 'Asistió' | 'Faltó'
+}) {
+  const result = await upsertAttendance(studentId, input)
+  if (!result) throw new AppError(404, 'ATTENDANCE_NOT_FOUND', 'La materia no existe, no pertenece al estudiante o no tiene horario para ese día')
   return result
 }
 

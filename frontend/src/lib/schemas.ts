@@ -5,6 +5,14 @@ export const loginSchema = z.object({
   contrasena: z.string().min(1, 'Ingresa tu contraseña'),
 })
 
+export const registerSchema = z.object({
+  numeroRegistro: z.string().regex(/^\d{8,20}$/, 'Ingresa un número de registro válido'),
+  nombres: z.string().trim().min(2, 'Ingresa los nombres').max(100),
+  apellidos: z.string().trim().min(2, 'Ingresa los apellidos').max(100),
+  numeroCelular: z.string().regex(/^[0-9+() -]{7,20}$/, 'Ingresa un celular válido'),
+  contrasena: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(72),
+})
+
 export const teacherSchema = z.object({
   nombres: z.string().trim().min(2, 'Ingresa los nombres').max(100),
   apellidos: z.string().trim().min(2, 'Ingresa los apellidos').max(100),

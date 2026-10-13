@@ -24,6 +24,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (data: { numeroRegistro: string; contrasena: string }) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data: object) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   profile: () => request('/students/me'),
   updateProfile: (data: object) => request('/students/me', { method: 'PATCH', body: JSON.stringify(data) }),
@@ -40,7 +41,7 @@ export const api = {
   createTeacher: (data: object) => request('/teachers', { method: 'POST', body: JSON.stringify(data) }),
   classrooms: () => request('/classrooms'),
   classmates: (subjectId: number) => request(`/curriculum/subjects/${subjectId}/classmates`),
-  schedule: () => request('/academic/schedule'),
+  schedule: (periodId?: number) => request(`/academic/schedule${periodId ? `?periodoId=${periodId}` : ''}`),
   createSchedule: (enrollmentId: number, data: object) => request(`/enrollments/${enrollmentId}/schedule`, { method: 'POST', body: JSON.stringify(data) }),
   updateSchedule: (id: number, data: object) => request(`/schedule/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSchedule: (id: number) => request(`/schedule/${id}`, { method: 'DELETE' }),
@@ -48,4 +49,5 @@ export const api = {
   grades: () => request('/academic/grades'),
   attendance: () => request('/academic/attendance'),
   attendanceSummary: () => request('/academic/attendance/summary'),
+  registerAttendance: (data: object) => request('/academic/attendance', { method: 'POST', body: JSON.stringify(data) }),
 }
