@@ -6,7 +6,7 @@
     "dev": "node --env-file=.env --import=tsx src/dev.ts",
     "dev:vercel": "vercel dev",
     "build": "tsc --noEmit",
-    "start": "node --env-file=.env --import=tsx src/dev.ts",
+    "start": "node --import=tsx src/dev.ts",
     "test": "vitest run"
   },
   "dependencies": {
