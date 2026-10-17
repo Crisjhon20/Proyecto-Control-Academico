@@ -7,7 +7,7 @@ import PublicHeader from '../components/PublicHeader.astro'
   <main class="hero-grid flex min-h-[calc(100vh-65px)] items-center justify-center px-5 py-16">
     <div class="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-[#315667] bg-[#0e1d29] shadow-2xl lg:grid-cols-[.9fr_1.1fr]">
       <section class="relative hidden overflow-hidden bg-[#153342] p-10 lg:block"><div class="glow absolute -left-24 top-0 h-80 w-80"></div><span class="eyebrow relative">Tu espacio académico</span><h1 class="display relative mt-16 text-6xl font-extrabold">Vuelve a<br /><span class="text-[#70b6d4]">tu ruta.</span></h1><p class="relative mt-8 max-w-xs text-sm leading-7 text-[#a9bbc5]">Consulta tus materias, organiza tus horarios y sigue cada paso de tu carrera.</p><div class="absolute bottom-10 left-10 right-10 border-t border-[#396073] pt-5 text-xs text-[#87a3af]">Ingeniería en Sistemas · Control Académico</div></section>
-      <section class="p-7 sm:p-12"><span class="eyebrow">Acceso de estudiante</span><h2 class="mt-8 text-3xl font-extrabold text-[#e9f1f4]">Ingresa a tu cuenta</h2><p class="mt-3 text-sm leading-6 text-[#9db2bd]">Usa tu número de registro para continuar.</p><form id="login-form" class="mt-9 space-y-5"><label class="block text-sm text-[#c9d8de]">Número de registro<input class="input-field mt-2" name="numeroRegistro" inputmode="numeric" autocomplete="username" placeholder="20260001" /></label><label class="block text-sm text-[#c9d8de]">Contraseña<input class="input-field mt-2" type="password" name="contrasena" autocomplete="current-password" placeholder="Tu contraseña" /></label><p id="login-error" class="hidden rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa]"></p><button class="btn-primary w-full" type="submit">Entrar a mi espacio <span class="ml-2">↗</span></button></form><a href="/registro" class="mt-8 block text-center text-sm text-[#73b8d5] hover:underline">Crear una cuenta nueva</a></section>
+       <section class="p-7 sm:p-12"><span class="eyebrow">Acceso de estudiante</span><h2 class="mt-8 text-3xl font-extrabold text-[#e9f1f4]">Ingresa a tu cuenta</h2><p class="mt-3 text-sm leading-6 text-[#9db2bd]">Usa tu número de registro para continuar.</p><form id="login-form" class="mt-9 space-y-5"><label class="block text-sm text-[#c9d8de]">Número de registro<input class="input-field mt-2" name="numeroRegistro" inputmode="numeric" autocomplete="username" placeholder="20260001" /></label><label class="block text-sm text-[#c9d8de]">Contraseña<span class="relative mt-2 block"><input id="password-input" class="input-field pr-14" type="password" name="contrasena" autocomplete="current-password" placeholder="Tu contraseña" /><button id="password-toggle" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-2 text-[#73b8d5] hover:bg-[#193b4b]" type="button" aria-label="Mostrar contraseña" aria-pressed="false"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label><p id="login-error" class="hidden rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa]"></p><button id="login-submit" class="btn-primary w-full" type="submit">Entrar a mi espacio <span class="ml-2">↗</span></button></form><a href="/registro" class="mt-8 block text-center text-sm text-[#73b8d5] hover:underline">Crear una cuenta nueva</a></section>
     </div>
   </main>
 </BaseLayout>
@@ -17,14 +17,30 @@ import PublicHeader from '../components/PublicHeader.astro'
   import { setSession } from '../lib/session'
   const form = document.querySelector<HTMLFormElement>('#login-form')
   const error = document.querySelector('#login-error')
+  const passwordInput = document.querySelector<HTMLInputElement>('#password-input')
+  const passwordToggle = document.querySelector<HTMLButtonElement>('#password-toggle')
+  const submitButton = document.querySelector<HTMLButtonElement>('#login-submit')
+  const eyeIcon = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>'
+  const eyeOffIcon = '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 3 18 18M10.6 6.2A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a18 18 0 0 1-3.1 3.8M6.3 6.8C3.9 8.5 2.5 12 2.5 12s3.5 6 9.5 6c1 0 1.9-.2 2.7-.5"/><path d="M9.5 9.5a3.5 3.5 0 0 0 5 5"/></svg>'
+
+  passwordToggle?.addEventListener('click', () => {
+    if (!passwordInput) return
+    const visible = passwordInput.type === 'text'
+    passwordInput.type = visible ? 'password' : 'text'
+    passwordToggle.innerHTML = visible ? eyeIcon : eyeOffIcon
+    passwordToggle.setAttribute('aria-label', visible ? 'Mostrar contraseña' : 'Ocultar contraseña')
+    passwordToggle.setAttribute('aria-pressed', String(!visible))
+  })
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault()
+    error?.classList.add('hidden')
     const data = Object.fromEntries(new FormData(form).entries())
     const parsed = loginSchema.safeParse(data)
     if (!parsed.success) { if (error) { error.textContent = parsed.error.issues[0]?.message || 'Revisa los datos'; error.classList.remove('hidden') }; return }
-    const button = form.querySelector('button'); if (button) { button.disabled = true; button.textContent = 'Validando…' }
+    if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Validando…' }
     try { setSession(await api.login(parsed.data) as any); window.location.href = '/app/' }
     catch (err) { if (error) { error.textContent = err instanceof ApiError ? err.message : 'No se pudo conectar con el servidor'; error.classList.remove('hidden') } }
-    finally { if (button) { button.disabled = false; button.innerHTML = 'Entrar a mi espacio <span class="ml-2">↗</span>' } }
+    finally { if (submitButton) { submitButton.disabled = false; submitButton.innerHTML = 'Entrar a mi espacio <span class="ml-2">↗</span>' } }
   })
 </script>

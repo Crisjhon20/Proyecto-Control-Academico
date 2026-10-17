@@ -25,8 +25,9 @@ export async function loginStudent(input: LoginInput) {
   )
 
   const student = result.rows[0]
-  if (!student || !(await bcrypt.compare(input.contrasena, student.contrasena))) {
-    throw new AppError(401, 'INVALID_CREDENTIALS', 'Credenciales incorrectas')
+  if (!student) throw new AppError(401, 'STUDENT_NOT_FOUND', 'Usuario incorrecto o no registrado')
+  if (!(await bcrypt.compare(input.contrasena, student.contrasena))) {
+    throw new AppError(401, 'INVALID_PASSWORD', 'Contraseña incorrecta')
   }
 
   const token = await new SignJWT({ role: student.rol })

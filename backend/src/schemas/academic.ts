@@ -55,3 +55,9 @@ export const periodSchema = z.object({
   message: 'La fecha de inicio debe ser anterior o igual a la fecha final',
   path: ['fechaFin'],
 })
+
+export const manualHistorySchema = z.object({
+  materiaId: z.number().int().positive(),
+  semestreCursado: z.number().int().min(1).max(20),
+  notaFinal: z.number().min(0).max(100),
+})

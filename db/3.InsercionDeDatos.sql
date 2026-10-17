@@ -76,3 +76,6 @@ VALUES ('2026-I'), ('2026-II'), ('2027-I');
 
 INSERT INTO aula (numero)
 SELECT numero FROM generate_series(1, 32) AS numeros(numero);
+
+INSERT INTO aula (numero, nombre)
+VALUES (33, 'Aula-Lab');

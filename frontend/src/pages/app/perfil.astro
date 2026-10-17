@@ -79,12 +79,19 @@ import AppLayout from '../../layouts/AppLayout.astro'
     throw new Error('No se pudo comprimir la imagen por debajo de 2 MB')
   }
 
-  const profile: any = await api.profile()
-  form.nombres.value = profile.nombres || ''
-  form.apellidos.value = profile.apellidos || ''
-  form.numeroCelular.value = profile.numeroCelular || ''
-  if (session) photoFallback.textContent = session.student.nombres.slice(0, 1) + session.student.apellidos.slice(0, 1)
-  api.profilePhoto().then((blob) => showPhoto(URL.createObjectURL(blob))).catch(() => {})
+  try {
+    const profile: any = await api.profile()
+    form.nombres.value = profile.nombres || ''
+    form.apellidos.value = profile.apellidos || ''
+    form.numeroCelular.value = profile.numeroCelular || ''
+    if (session) photoFallback.textContent = session.student.nombres.slice(0, 1) + session.student.apellidos.slice(0, 1)
+    api.profilePhoto().then((blob) => showPhoto(URL.createObjectURL(blob))).catch(() => {})
+  } catch (error) {
+    feedback.textContent = error instanceof ApiError ? error.message : 'No se pudo cargar el perfil.'
+    feedback.className = 'sm:col-span-2 rounded-lg border border-[#70434a] bg-[#321f29] p-3 text-sm text-[#efaaaa]'
+  } finally {
+    ;(window as any).hidePageLoading?.()
+  }
 
   photoInput.addEventListener('change', () => {
     const file = photoInput.files?.[0]

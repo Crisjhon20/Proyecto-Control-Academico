@@ -13,6 +13,9 @@ import {
   findEnrollmentEvaluations,
   findGrades,
   findHistory,
+  createManualHistory,
+  updateManualHistory,
+  deleteManualHistory,
   findClassrooms,
   findPeriods,
   findSchedule,
@@ -186,6 +189,43 @@ export async function getClassmates(studentId: number, subjectId: number) {
   const periodId = await findStudentSubjectPeriod(studentId, subjectId)
   if (!periodId) throw new AppError(403, 'FORBIDDEN', 'No estás inscrito en esta materia')
   return findClassmates(studentId, subjectId, periodId)
+}
+
+export async function addManualHistory(studentId: number, data: {
+  materiaId: number
+  semestreCursado: number
+  notaFinal: number
+}) {
+  try {
+    const result = await createManualHistory(studentId, data)
+    if (!result) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
+    return result
+  } catch (error: any) {
+    if (error?.code === '23505') throw new AppError(409, 'HISTORY_CONFLICT', 'Ya existe un registro manual para esa materia y semestre')
+    throw error
+  }
+}
+
+export async function editManualHistory(studentId: number, id: number, data: {
+  materiaId: number
+  semestreCursado: number
+  notaFinal: number
+}) {
+  try {
+    if (!(await findSubject(data.materiaId))) throw new AppError(404, 'SUBJECT_NOT_FOUND', 'Materia no encontrada')
+    const result = await updateManualHistory(studentId, id, data)
+    if (!result) throw new AppError(404, 'HISTORY_NOT_FOUND', 'Registro manual no encontrado')
+    return result
+  } catch (error: any) {
+    if (error?.code === '23505') throw new AppError(409, 'HISTORY_CONFLICT', 'Ya existe un registro manual para esa materia y semestre')
+    throw error
+  }
+}
+
+export async function removeManualHistory(studentId: number, id: number) {
+  const result = await deleteManualHistory(studentId, id)
+  if (!result) throw new AppError(404, 'HISTORY_NOT_FOUND', 'Registro manual no encontrado')
+  return result
 }
 
 export async function registerTeacher(studentId: number, data: { nombres: string; apellidos: string }) {

@@ -60,7 +60,9 @@ ALTER TABLE docente
 
 ALTER TABLE aula
     ADD CONSTRAINT ck_aula_numero
-        CHECK (numero IS NOT NULL AND numero BETWEEN 1 AND 32);
+        CHECK (numero IS NOT NULL AND numero BETWEEN 1 AND 99),
+    ADD CONSTRAINT ck_aula_nombre
+        CHECK (nombre IS NULL OR btrim(nombre) <> '');
 
 ALTER TABLE evaluacion
     ADD CONSTRAINT ck_evaluacion_inscripcion
@@ -92,7 +94,9 @@ ALTER TABLE historial_academico
     ADD CONSTRAINT ck_historial_nota
         CHECK (nota_final IS NOT NULL AND nota_final BETWEEN 0 AND 100),
     ADD CONSTRAINT ck_historial_estado
-        CHECK (estado IS NOT NULL AND estado IN ('Inscrita', 'Retirada', 'Aprobada', 'Reprobada'));
+        CHECK (estado IS NOT NULL AND estado IN ('Inscrita', 'Retirada', 'Aprobada', 'Reprobada')),
+    ADD CONSTRAINT ck_historial_origen
+        CHECK (origen IS NOT NULL AND origen IN ('Periodo', 'Manual'));
 
 -- DEFAULT
 ALTER TABLE inscripcion
@@ -144,6 +148,10 @@ CREATE UNIQUE INDEX uq_periodo_estudiante_activo
     ON periodo_estudiante (estudiante_id)
     WHERE activo = TRUE;
 
+CREATE UNIQUE INDEX uq_historial_manual_estudiante_materia_semestre
+    ON historial_academico (estudiante_id, materia_id, semestre_cursado)
+    WHERE origen = 'Manual';
+
 -- Al cerrar un periodo, se conserva una copia inmutable del resultado académico.
 CREATE OR REPLACE FUNCTION preparar_cierre_periodo_estudiante()
 RETURNS TRIGGER AS $$
@@ -162,7 +170,7 @@ BEGIN
     IF NEW.cerrado = TRUE AND OLD.cerrado = FALSE THEN
         INSERT INTO historial_academico
             (estudiante_id, materia_id, periodo_estudiante_id,
-             semestre_cursado, nota_final, estado)
+             semestre_cursado, nota_final, estado, origen)
          SELECT i.estudiante_id,
                 i.materia_id,
                 i.periodo_estudiante_id,
@@ -172,13 +180,14 @@ BEGIN
                     WHEN i.estado = 'Retirada' THEN 'Retirada'
                     WHEN COALESCE(SUM(n.nota * e.porcentaje / 100), 0) >= 51 THEN 'Aprobada'
                     ELSE 'Reprobada'
-                END
-          FROM inscripcion i
+                END,
+                 'Periodo'
+           FROM inscripcion i
           LEFT JOIN evaluacion e ON e.inscripcion_id = i.inscripcion_id
           LEFT JOIN nota n ON n.evaluacion_id = e.evaluacion_id
          WHERE i.periodo_estudiante_id = NEW.periodo_estudiante_id
          GROUP BY i.estudiante_id, i.materia_id,
-                   i.periodo_estudiante_id, i.semestre_cursado, i.estado
+                    i.periodo_estudiante_id, i.semestre_cursado, i.estado
          ON CONFLICT (estudiante_id, materia_id, periodo_estudiante_id)
         DO NOTHING;
     END IF;

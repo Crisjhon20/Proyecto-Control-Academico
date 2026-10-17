@@ -65,6 +65,17 @@ button { cursor: pointer; }
 }
 .input-field:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(115,184,213,.12); }
 .input-field::placeholder { color: #6d8996; }
+#password-input:-webkit-autofill + #password-toggle,
+#password-input:-moz-autofill + #password-toggle { color: #0e2b3d !important; }
+#password-input:-webkit-autofill + #password-toggle:hover,
+#password-input:-moz-autofill + #password-toggle:hover { background: rgba(14, 43, 61, .12); }
+summary::-webkit-details-marker { display: none; }
+summary::marker { content: ''; }
+.details-open-hint { display: none; }
+details > summary .details-closed-hint { display: block; }
+details > summary .details-open-hint { display: none; }
+details[open] > summary .details-closed-hint { display: none; }
+details[open] > summary .details-open-hint { display: block; }
 
 .btn-primary {
   border-radius: 0.75rem;
@@ -91,6 +102,22 @@ button { cursor: pointer; }
 
 .scrollbar-thin::-webkit-scrollbar { height: 5px; width: 5px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: #356477; border-radius: 8px; }
+
+.page-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  background: rgba(14, 29, 41, .94);
+  color: var(--mist);
+  font-size: .85rem;
+}
+.page-loading.hidden { display: none; }
+.loading-spinner { width: 1.25rem; height: 1.25rem; border: 2px solid #315667; border-top-color: var(--cyan); border-radius: 999px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 768px) {
   .display { letter-spacing: -0.05em; }

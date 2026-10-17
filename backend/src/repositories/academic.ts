@@ -120,7 +120,8 @@ export async function createTeacher(studentId: number, data: { nombres: string; 
 
 export async function findClassrooms() {
   const result = await pool.query(`
-    SELECT aula_id AS id, numero
+    SELECT aula_id AS id, numero, nombre,
+           COALESCE(nombre, 'Aula ' || numero::text) AS etiqueta
       FROM aula
      ORDER BY numero
   `)
@@ -181,14 +182,58 @@ export async function findHistory(studentId: number) {
     SELECT h.historial_academico_id AS id, p.nombre AS periodo,
            m.materia_id AS materia_id, m.codigo, m.nombre AS materia,
            m.semestre, m.creditos, h.semestre_cursado, h.estado,
-           h.nota_final, h.archivado_en
-      FROM historial_academico h
-       JOIN periodo_estudiante p ON p.periodo_estudiante_id = h.periodo_estudiante_id
+           h.nota_final, h.origen, h.archivado_en
+       FROM historial_academico h
+        LEFT JOIN periodo_estudiante p ON p.periodo_estudiante_id = h.periodo_estudiante_id
       JOIN materia m ON m.materia_id = h.materia_id
      WHERE h.estudiante_id = $1
      ORDER BY p.nombre DESC, m.semestre, m.codigo
   `, [studentId])
   return result.rows
+}
+
+export async function createManualHistory(studentId: number, data: {
+  materiaId: number
+  semestreCursado: number
+  notaFinal: number
+}) {
+  const result = await pool.query(`
+    INSERT INTO historial_academico
+      (estudiante_id, materia_id, periodo_estudiante_id, semestre_cursado, nota_final, estado, origen)
+    SELECT $1, m.materia_id, NULL, $3, $4,
+           CASE WHEN $4 >= 51 THEN 'Aprobada' ELSE 'Reprobada' END,
+           'Manual'
+      FROM materia m
+     WHERE m.materia_id = $2
+    RETURNING historial_academico_id AS id, materia_id, semestre_cursado,
+              nota_final, estado, origen, archivado_en
+  `, [studentId, data.materiaId, data.semestreCursado, data.notaFinal])
+  return result.rows[0] ?? null
+}
+
+export async function updateManualHistory(studentId: number, id: number, data: {
+  materiaId: number
+  semestreCursado: number
+  notaFinal: number
+}) {
+  const result = await pool.query(`
+    UPDATE historial_academico
+       SET materia_id = $3, semestre_cursado = $4, nota_final = $5,
+           estado = CASE WHEN $5 >= 51 THEN 'Aprobada' ELSE 'Reprobada' END
+     WHERE historial_academico_id = $1 AND estudiante_id = $2 AND origen = 'Manual'
+    RETURNING historial_academico_id AS id, materia_id, semestre_cursado,
+              nota_final, estado, origen, archivado_en
+  `, [id, studentId, data.materiaId, data.semestreCursado, data.notaFinal])
+  return result.rows[0] ?? null
+}
+
+export async function deleteManualHistory(studentId: number, id: number) {
+  const result = await pool.query(`
+    DELETE FROM historial_academico
+     WHERE historial_academico_id = $1 AND estudiante_id = $2 AND origen = 'Manual'
+    RETURNING historial_academico_id AS id
+  `, [id, studentId])
+  return result.rows[0] ?? null
 }
 
 export async function findGrades(studentId: number, enrollmentId?: number) {

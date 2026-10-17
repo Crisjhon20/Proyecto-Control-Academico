@@ -16,7 +16,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, { ...init, headers })
   const body = await response.json().catch(() => null)
   if (!response.ok || !body?.success) {
-    if (response.status === 401) { clearSession(); window.location.href = '/login' }
+    const isLoginRequest = path === '/auth/login'
+    if (response.status === 401 && !isLoginRequest) { clearSession(); window.location.href = '/login' }
     throw new ApiError(response.status, body?.error?.code || 'REQUEST_ERROR', body?.error?.message || 'No se pudo completar la solicitud')
   }
   return body.data as T
@@ -68,5 +69,8 @@ export const api = {
   updateSchedule: (id: number, data: object) => request(`/schedule/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteSchedule: (id: number) => request(`/schedule/${id}`, { method: 'DELETE' }),
   history: () => request('/academic/history'),
+  createManualHistory: (data: object) => request('/academic/history/manual', { method: 'POST', body: JSON.stringify(data) }),
+  updateManualHistory: (id: number, data: object) => request(`/academic/history/manual/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteManualHistory: (id: number) => request(`/academic/history/manual/${id}`, { method: 'DELETE' }),
   grades: () => request('/academic/grades'),
 }

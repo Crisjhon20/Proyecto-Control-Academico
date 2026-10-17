@@ -12,6 +12,10 @@ const links = [
 ]
 ---
 <div class="min-h-screen bg-[#102431]">
+  <div id="global-loading" class="page-loading" role="status" aria-live="polite"><span class="loading-spinner"></span><span>Cargando información...</span></div>
+  <script is:inline>
+    window.hidePageLoading = () => document.querySelector('#global-loading')?.classList.add('hidden')
+  </script>
   <header class="sticky top-0 z-30 border-b border-[#294552] bg-[#0d1b28]/95">
     <div class="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-3 lg:px-10">
       <a href="/app/" class="focus-ring flex items-center gap-3">

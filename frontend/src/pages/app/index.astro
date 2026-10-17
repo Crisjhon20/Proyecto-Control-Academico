@@ -30,6 +30,8 @@ import AppLayout from '../../layouts/AppLayout.astro'
       const next = schedule[0]; const target = document.querySelector('#next-class')
        if (target) target.innerHTML = next ? `<div class="flex items-center justify-between rounded-xl border border-[#315667] bg-[#193746] p-5"><div><p class="text-xs uppercase tracking-[.12em] text-[#73b8d5]">${next.dia_semana} · ${String(next.hora_inicio).slice(0,5)}</p><h3 class="mt-2 text-lg font-bold">${next.materia}</h3><p class="mt-1 text-sm text-[#9db2bd]">${next.docente_nombres || 'Docente pendiente'} · Aula ${next.aula || 'pendiente'}</p></div><span class="text-3xl text-[#73b8d5]">→</span></div>` : '<p class="rounded-xl border border-dashed border-[#315667] p-5 text-sm text-[#8fa9b5]">Todavía no tienes horarios configurados.</p>'
        }
-    } catch { document.querySelector('#next-class')!.innerHTML = '<p class="text-sm text-[#efaaaa]">No se pudo cargar la información académica.</p>' }
-  }
+     } catch { document.querySelector('#next-class')!.innerHTML = '<p class="text-sm text-[#efaaaa]">No se pudo cargar la información académica.</p>' } finally {
+       ;(window as any).hidePageLoading?.()
+     }
+   }
 </script>
